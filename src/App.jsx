@@ -8,14 +8,15 @@ import TVVTab from './components/TVVTab'
 // ========== FIREBASE CONFIG ==========
 // Replace with your Firebase project config from console.firebase.google.com
 // Project Settings → General → Your apps → Web app → Config
-const firebaseConfig = {
-  apiKey: "AIzaSyC6pQL16It6EficYFP7yZSBKqQ56Gkfv-E",
-  authDomain: "ga-dashboard-59e2a.firebaseapp.com",
-  projectId: "ga-dashboard-59e2a",
-  storageBucket: "ga-dashboard-59e2a.firebasestorage.app",
-  messagingSenderId: "135229272496",
-  appId: "1:135229272496:web:6ed8edfea116c6b274a675"
-};
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+}
 // =====================================
 
 const NAV_ITEMS = [

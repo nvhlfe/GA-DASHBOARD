@@ -6,11 +6,17 @@ function fmt(val) {
   if (isNaN(n)) return null
   return Math.round(n * 10) / 10
 }
-
 function fmtInt(val) {
   const n = parseFloat(val)
   if (isNaN(n)) return 0
   return Math.round(n)
+}
+function fmtDate(val) {
+  if (!val) return null
+  if (val instanceof Date) return val.toLocaleDateString('vi-VN')
+  const s = String(val)
+  if (s.includes('T')) return s.split('T')[0]
+  return s
 }
 
 export async function parseExcelFile(file) {
@@ -30,24 +36,35 @@ export async function parseExcelFile(file) {
 function extractData(wb) {
   const result = {}
 
-  // ===== THÁNG 5 → Dashboard KPIs =====
+  // ===== THÁNG 5 → Dashboard KPIs + monthly per-agent data =====
+  const agentMonthly = {}  // keyed by AGCode string
+
   if (wb.SheetNames.includes('Tháng 5')) {
     const ws = wb.Sheets['Tháng 5']
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
     const headers = raw[1] || []
-    const rows = raw.slice(2).filter(r => r[11] === 'D03')
+    const allRows = raw.slice(2)
+    const d03rows = allRows.filter(r => r[11] === 'D03')
+
+    // Column index finder
     const col = (name) => headers.indexOf(name)
-    const sum = (c) => rows.reduce((acc, r) => acc + (parseFloat(r[c]) || 0), 0)
 
     const C = {
+      AGCODE: col('AGCode'), AGNAME: col('AGName'), AGLEVEL: col('AGLevel'),
+      BRANCH: col('BranchCode'), UNIT: col('UnitCode'),
       NET_MP: col('Net Manpower'), FYC: col('FYC'), FYP: col('FYP'),
       APE_NET: col('APE Net'), IP_NET: col('IP Net'), CASE_NET: col('Case Net'),
       FYC_YTD: col('FYC YTD'), IP_YTD: col('IP Net YTD'), APE_YTD: col('APE Net YTD'),
       FYP_YTD: col('FYP YTD'), SYC: col('SYC'), RYC: col('RYC'),
       ACT_FYC: col('Active Net (FYC)'), ACT_CASE: col('Active Net (Case)'),
-      AG_LEVEL: col('AGLevel'), AG_CODE: col('AGCode'), AG_NAME: col('AGName'),
-      BRANCH: col('BranchCode'), MDRT: col('MDRT Title'),
+      MDRT: col('MDRT Title'), TLDTPTT: col('TLDTPTT'),
+      FYC_QTD: col('FYC QTD'), FYC_L9M: col('FYC L9M'), FYC_L12M: col('FYC L12M'),
+      FYP_BASE: col('FYP Base'), ACT_MONTH_QTD: col('Active month QTD'),
+      IP_SUB: col('IP Sub'), APE_SUB: col('APE Sub'), CASE_SUB: col('Case Sub'),
+      MONTH: col('YearMonth'),
     }
+
+    const sum = (c) => d03rows.reduce((acc, r) => acc + (parseFloat(r[c]) || 0), 0)
 
     result.kpis = {
       netManpower: fmtInt(sum(C.NET_MP)),
@@ -62,19 +79,18 @@ function extractData(wb) {
       fypYtd: fmt(sum(C.FYP_YTD)),
       syc: fmt(sum(C.SYC)),
       ryc: fmt(sum(C.RYC)),
-      tongDaiLy: rows.length,
+      tongDaiLy: d03rows.length,
       activeFyc: fmtInt(sum(C.ACT_FYC)),
       activeCase: fmtInt(sum(C.ACT_CASE)),
-      mdrt: rows.filter(r => r[C.MDRT] && r[C.MDRT] !== '').length,
+      mdrt: d03rows.filter(r => r[C.MDRT] && r[C.MDRT] !== 'Not MDRT').length,
     }
 
+    // Top agents by FYC
     const agentMap = {}
-    rows.forEach(r => {
-      const code = r[C.AG_CODE]
+    d03rows.forEach(r => {
+      const code = String(r[C.AGCODE] || '').trim()
       if (!code) return
-      if (!agentMap[code]) {
-        agentMap[code] = { code, name: r[C.AG_NAME], level: r[C.AG_LEVEL], branch: r[C.BRANCH], fyc: 0, ape: 0, caseNet: 0, syc: 0 }
-      }
+      if (!agentMap[code]) agentMap[code] = { code, name: r[C.AGNAME], level: r[C.AGLEVEL], branch: r[C.BRANCH], fyc: 0, ape: 0, caseNet: 0, syc: 0 }
       agentMap[code].fyc += parseFloat(r[C.FYC]) || 0
       agentMap[code].ape += parseFloat(r[C.APE_NET]) || 0
       agentMap[code].caseNet += parseFloat(r[C.CASE_NET]) || 0
@@ -85,7 +101,7 @@ function extractData(wb) {
       .map(a => ({ ...a, fyc: fmt(a.fyc), ape: fmt(a.ape), caseNet: fmt(a.caseNet), syc: fmt(a.syc) }))
 
     result.levelDist = Object.entries(
-      rows.reduce((acc, r) => { const lv = r[C.AG_LEVEL] || 'Other'; acc[lv] = (acc[lv] || 0) + 1; return acc }, {})
+      d03rows.reduce((acc, r) => { const lv = r[C.AGLEVEL] || 'Other'; acc[lv] = (acc[lv] || 0) + 1; return acc }, {})
     ).map(([name, value]) => ({ name, value }))
 
     result.officeData = [{
@@ -93,6 +109,43 @@ function extractData(wb) {
       netMp: fmtInt(sum(C.NET_MP)), fyc: fmt(sum(C.FYC)),
       apeNet: fmt(sum(C.APE_NET)), caseNet: fmtInt(sum(C.CASE_NET))
     }]
+
+    // Build monthly data per agent from Tháng 5 (just current month T5)
+    // Map YearMonth (e.g. 202601..202612) to T1..T12
+    const monthLabel = (ym) => {
+      if (!ym) return null
+      const s = String(ym)
+      const m = parseInt(s.slice(4))
+      return `T${m}`
+    }
+
+    // Group rows by agent code - accumulate per month
+    allRows.filter(r => r[11] === 'D03').forEach(r => {
+      const code = String(r[C.AGCODE] || '').trim()
+      if (!code) return
+      const mLabel = monthLabel(r[C.MONTH])
+      if (!mLabel) return
+      if (!agentMonthly[code]) agentMonthly[code] = {}
+      if (!agentMonthly[code][mLabel]) {
+        agentMonthly[code][mLabel] = {
+          month: mLabel,
+          hd: 0, ip: 0, fyp: 0, fyc: 0, syc: 0,
+          act: false, fycL12m: 0, hdYtd: 0, fycYtd: 0, fypYtd: 0, ipYtd: 0
+        }
+      }
+      const m = agentMonthly[code][mLabel]
+      m.hd += parseFloat(r[C.IP_NET]) || 0  // IP Net = hợp đồng
+      m.ip += parseFloat(r[C.APE_SUB]) || 0  // APE Sub
+      m.fyp += parseFloat(r[C.FYP]) || 0
+      m.fyc += parseFloat(r[C.FYC]) || 0
+      m.syc += parseFloat(r[C.SYC]) || 0
+      if (parseFloat(r[C.ACT_FYC]) > 0) m.act = true
+      m.fycL12m = parseFloat(r[C.FYC_L12M]) || m.fycL12m
+      m.hdYtd = parseFloat(r[C.IP_YTD]) || m.hdYtd
+      m.fycYtd = parseFloat(r[C.FYC_YTD]) || m.fycYtd
+      m.fypYtd = parseFloat(r[C.FYP_YTD]) || m.fypYtd
+      m.ipYtd = parseFloat(r[C.APE_YTD]) || m.ipYtd
+    })
   }
 
   // ===== GA data → GA tab =====
@@ -100,21 +153,14 @@ function extractData(wb) {
     const ws = wb.Sheets['GA data']
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    const fypAchRow = raw[4] || []
-    const fypPlanRow = raw[3] || []
-    const actRow = raw[6] || []
-    const mpRow = raw[13] || []
-    const tldtRow = raw[14] || []
-
     result.gaData = {
-      fyp2026: months.map((m, i) => ({ month: m, achieved: fmt(fypAchRow[4+i]), plan: fmt(fypPlanRow[4+i]) })),
-      act2026: months.map((m, i) => ({ month: m, value: fmt(actRow[4+i]) })),
-      mp2026: months.map((m, i) => ({ month: m, value: fmt(mpRow[4+i]) })),
-      // TLDTPTT values are already decimal ratios (0-1)
-      tldtptt: months.map((m, i) => ({ month: m, value: fmt(tldtRow[4+i]) })),
-      totalFypYtd: fmt(fypAchRow[16]),
-      totalFypPlan: fmt(fypPlanRow[16]),
-      totalAct: fmt(actRow[16]),
+      fyp2026: months.map((m, i) => ({ month: m, achieved: fmt((raw[4]||[])[4+i]), plan: fmt((raw[3]||[])[4+i]) })),
+      act2026: months.map((m, i) => ({ month: m, value: fmt((raw[6]||[])[4+i]) })),
+      mp2026: months.map((m, i) => ({ month: m, value: fmt((raw[13]||[])[4+i]) })),
+      tldtptt: months.map((m, i) => ({ month: m, value: fmt((raw[14]||[])[4+i]) })),
+      totalFypYtd: fmt((raw[4]||[])[16]),
+      totalFypPlan: fmt((raw[3]||[])[16]),
+      totalAct: fmt((raw[6]||[])[16]),
     }
   }
 
@@ -122,202 +168,171 @@ function extractData(wb) {
   if (wb.SheetNames.includes('UM-OFF')) {
     const ws = wb.Sheets['UM-OFF']
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
-    const rows = raw.slice(3).filter(r => {
-      const stt = r[0]
-      return stt !== null && stt !== undefined && stt !== '' && !isNaN(parseFloat(stt))
-    })
-
+    const rows = raw.slice(3).filter(r => r[0] !== null && r[0] !== undefined && r[0] !== '' && !isNaN(parseFloat(r[0])))
     result.umList = rows.map(r => ({
-      stt: fmtInt(r[0]),
-      off: r[1], bm: r[2], unit: r[3],
+      stt: fmtInt(r[0]), off: r[1], bm: r[2], unit: r[3],
       leaderCode: String(r[4] || '').trim(),
-      leaderName: r[5], agType: r[6], appDate: r[7],
+      leaderName: r[5], agType: r[6], appDate: fmtDate(r[7]),
       phone: String(r[8] || ''),
-      pcHienTai: r[9],
-      fycPhongTT: fmt(r[10]),
-      tvvmcl: fmt(r[11]),
-      tvvmclGen1_50pct: fmt(r[12]),
-      tongTvvmclGen1: fmt(r[13]),
-      tldtptt: fmt(r[14]),
-      pcTamDat: r[15],
-      pcDuKien: r[16],
-      fycCanThem: fmt(r[18]),
-      tvvMoiCl: fmt(r[19]),
-      tongFyc: fmt(r[21]),
-      tongTvvAct: fmt(r[22]),
-      mucHoTro: r[24],
-      mucChiTra: r[25],
-      tienThuong: fmt(r[26]),
-      fycTangMucThuong: fmt(r[27]),
-      luotActCanThem: fmt(r[28]),
-      thuongTangThem: fmt(r[30]),
-      // UM MOC columns (32-40)
-      moc_fyc6thang: fmt(r[32]),
-      moc_luotTvvAct: fmt(r[33]),
-      moc_tvvMoiCl: fmt(r[34]),
-      moc_tongLuot: fmt(r[35]),
-      moc_tldtptt: fmt(r[36]),
-      moc_tamDat: r[37],
-      moc_fycCanThem: fmt(r[38]),
-      moc_luotCanThem: fmt(r[39]),
+      pcHienTai: r[9], fycPhongTT: fmt(r[10]),
+      tvvmcl: fmt(r[11]), tvvmclGen1_50pct: fmt(r[12]),
+      tongTvvmclGen1: fmt(r[13]), tldtptt: fmt(r[14]),
+      pcTamDat: r[15], pcDuKien: r[16],
+      fycCanThem: fmt(r[18]), tvvMoiCl: fmt(r[19]),
+      tongFyc: fmt(r[21]), tongTvvAct: fmt(r[22]),
+      mucHoTro: r[24], mucChiTra: r[25],
+      tienThuong: fmt(r[26]), fycTangMucThuong: fmt(r[27]),
+      luotActCanThem: fmt(r[28]), thuongTangThem: fmt(r[30]),
+      // UM MOC columns
+      moc_fyc6thang: fmt(r[32]), moc_luotTvvAct: fmt(r[33]),
+      moc_tvvMoiCl: fmt(r[34]), moc_tongLuot: fmt(r[35]),
+      moc_tldtptt: fmt(r[36]), moc_tamDat: r[37],
+      moc_fycCanThem: fmt(r[38]), moc_luotCanThem: fmt(r[39]),
       moc_tldtCanThem: r[40],
-      // Star Club
-      luotTvvHdTb: fmt(r[42]),
-      tongIp: r[43],
-      tamThoaDK: r[44],
-      veThamDu: r[45],
+      // Star Club nhóm
+      luotTvvHdTb: fmt(r[42]), tongIp: r[43],
+      tamThoaDK: r[44], veThamDu: r[45],
     }))
   }
 
-  // ===== AG-PE sheet =====
+  // ===== AG-PE sheet → TVV list =====
+  // Column mapping (row 4 = header, data starts row 5)
+  const COL = {
+    NO: 0, OFFICE: 1, BAN: 2, UNIT: 3, MSDL: 4, AGNAME: 5,
+    APPDATE: 7, PHONE: 8, MDRT2026: 9,
+    // A. PRU ELITE
+    PE_HIENTAI: 10,       // PE HIỆN TẠI
+    FYC_12M: 11,          // FYC trong 12 tháng vừa qua
+    ACT1: 12,             // Hoạt động tháng thứ 1
+    ACT2: 13,             // Hoạt động tháng thứ 2
+    ACT3: 14,             // Hoạt động tháng thứ 3
+    TONGHD3M: 15,         // Tổng số HĐ 3 tháng vừa qua
+    TLDTPTT: 16,          // TLDTPTT
+    KQ_TAMTINH: 17,       // Kết quả tạm tính
+    PE_DUKIEN: 18,        // PE dự kiến
+    NANG_TLDTPTT: 19,     // Nâng TLDTPTT (cần khôi phục)
+    PE_FYC_CANTHEM: 20,   // FYC cần thêm (PE)
+    PE_THANG_CANTHEM: 21, // Số tháng Act/Quý cần thêm
+    // B. THƯỞNG QUÝ CÁ NHÂN
+    FYC_QUY: 23,          // FYC trong quý
+    SYC_QUY: 24,          // SYC trong quý
+    TLDTPTT_QUY: 25,      // TLDTPTT (thưởng quý)
+    MUC_HO_TRO: 26,       // Mức hỗ trợ
+    MUC_CHI_TRA: 27,      // Mức chi trả
+    THUONG_TAMTINH: 28,   // Thưởng tạm tính
+    FYC_TANG_MUC: 29,     // FYC cần để tăng mức thưởng
+    THUONG_TANGTHER: 30,  // Thưởng dự kiến tăng thêm
+    // C. MDRT 2027
+    FYP_2026: 32,         // FYP 2026 (lũy kế)
+    FYP_CAN_MDRT: 33,     // FYP cần MDRT
+    FYP_CAN_COT: 34,      // FYP cần COT
+    FYP_CAN_TOT: 35,      // FYP cần TOT
+    MDRT_OT_Q3: 36,       // MDRT OT Quý 3
+    MDRT_OT_Q2: 37,       // MDRT OT Quý 2
+    MDRT_OT_Q1: 38,       // MDRT OT Quý 1
+    MDRT_DA_DAT: 39,      // Đã đạt
+    // UM Promotion (skip 41-44)
+    // D. STAR CLUB
+    SC_SLHD: 45,          // SLHĐ còn hiệu lực
+    SC_TLDTPTT: 46,       // TLDTPTT (Star Club promotion)
+    SC_TAMDAT: 47,        // Tạm Đạt (promotion)
+    SC_HS: 49,            // HS nộp và phát hành
+    SC_TLDTPTT2: 50,      // TLDTPTT (Star Club chính)
+    SC_TLDTHD: 51,        // TLDTHD
+    SC_TONG_IP: 52,       // Tổng IP
+    SC_TAM_THOA: 53,      // Tạm thỏa điều kiện đạt vé
+    SC_SO_VE: 54,         // Số Vé Tạm Đạt
+    SC_VE: 55,            // Vé Tham Dự Tạm Đạt
+    // MDRT 2027 summary
+    MDRT2027_LEVEL: 59,   // MDRT 2027 level (MDRT/COT/TOT)
+    MDRT2027_FYP_CHI_TIEU: 61,  // CHỈ TIÊU FYP
+    MDRT2027_FYC_CHI_TIEU: 62,  // CHỈ TIÊU FYC
+    MDRT2027_INCOME_CHI_TIEU: 63, // CHỈ TIÊU INCOME
+  }
+
   if (wb.SheetNames.includes('AG-PE')) {
     const ws = wb.Sheets['AG-PE']
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
-    const rows = raw.slice(5).filter(r => r[0] !== null && r[0] !== undefined && !isNaN(parseFloat(r[0])))
+    // data rows start at row index 5 (0-based)
+    const rows = raw.slice(5).filter(r => r[COL.NO] !== null && r[COL.NO] !== undefined && !isNaN(parseFloat(r[COL.NO])))
 
-    result.agList = rows.map(r => ({
-      no: fmtInt(r[0]),
-      office: r[1], ban: r[2], unit: r[3],
-      msddl: String(r[4] || '').trim(),
-      agentName: r[5],
-      appDate: r[7],
-      phone: String(r[8] || ''),
-      mdrt: r[9],
-      peHienTai: r[10],
-      fyc12m: fmt(r[11]),
-      act1: r[12], act2: r[13], act3: r[14],
-      tongHd3m: fmt(r[15]),
-      tldtptt: fmt(r[16]),
-      ketQuaTamTinh: r[17],
-      peDuKien: r[18],
-      fyc: fmt(r[23]),
-      syc: fmt(r[24]),
-      tldtptt2: fmt(r[25]),
-      mucHoTro: r[26],
-      mucChiTra: r[27],
-      thuongTamTinh: fmt(r[28]),
-      fycCanThem: fmt(r[29]),
-      // MDRT 2027 fields
-      fypYtd: fmt(r[32]),
-      mdrt_fypCanMdrt: fmt(r[33]),
-      mdrt_fypCanCot: fmt(r[34]),
-      mdrt_fypCanTot: fmt(r[35]),
-      mdrt_otQ3: r[36], mdrt_otQ2: r[37], mdrt_otQ1: r[38],
-      mdrt_daDat: r[39],
-      // Star Club
-      sc_soHd: fmt(r[45]),        // SLHĐ còn hiệu lực
-      sc_tldtptt: fmt(r[46]),     // TLDTPTT.2
-      sc_tamDat: r[47],           // Tạm Đạt
-      sc_hsNopPhatHanh: fmt(r[49]), // HS nộp và phát hành
-      sc_tldtptt3: fmt(r[50]),    // TLDTPTT.3
-      sc_tldthd: fmt(r[51]),      // TLDTHD
-      sc_tongIp: r[52],           // Tổng IP
-      sc_tamThoa: r[53],          // Tạm thỏa điều kiện đạt vé
-      sc_soVe: fmt(r[54]),        // Số Vé Tạm Đạt
-      sc_ve: r[55],               // Vé Tham Dự Tạm Đạt
-    }))
-  }
+    result.agList = rows.map(r => {
+      const code = String(r[COL.MSDL] || '').trim()
+      // Get monthly data from Tháng 5
+      const monthly = agentMonthly[code]
+        ? Object.values(agentMonthly[code]).sort((a, b) => {
+            const mA = parseInt(a.month.replace('T',''))
+            const mB = parseInt(b.month.replace('T',''))
+            return mA - mB
+          }).map(m => ({
+            ...m,
+            hd: fmt(m.hd), ip: fmt(m.ip), fyp: fmt(m.fyp), fyc: fmt(m.fyc), syc: fmt(m.syc),
+            fycL12m: fmt(m.fycL12m), hdYtd: fmt(m.hdYtd), fycYtd: fmt(m.fycYtd),
+            fypYtd: fmt(m.fypYtd), ipYtd: fmt(m.ipYtd)
+          }))
+        : []
 
-  // ===== 121 AG sheet → TVV detail per agent =====
-  // This sheet is a template for 1 agent; we parse its layout to enrich agList
-  if (wb.SheetNames.includes('121 AG') && result.agList) {
-    const ws = wb.Sheets['121 AG']
-    const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
-    // Parse the template agent code from row 4, col 2
-    const templateCode = String(raw[4]?.[2] || '').trim()
+      return {
+        no: fmtInt(r[COL.NO]),
+        office: r[COL.OFFICE], ban: r[COL.BAN], unit: r[COL.UNIT],
+        msddl: code,
+        agentName: r[COL.AGNAME],
+        appDate: fmtDate(r[COL.APPDATE]),
+        phone: String(r[COL.PHONE] || '—'),
+        mdrt: r[COL.MDRT2026],
 
-    // Parse monthly business data: rows 8-19, cols 1-11
-    // Row structure: [null, month, hd_month, ip_month, fyp_month, fyc_month, act, fycL12m, hd_ytd, fyc_ytd, fyp_ytd, ip_ytd]
-    const parseMonthly = (raw) => {
-      const months = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
-      return months.map((m, idx) => {
-        const row = raw[8 + idx] || []
-        return {
-          month: m,
-          hd: fmt(row[2]),
-          ip: fmt(row[3]),
-          fyp: fmt(row[4]),
-          fyc: fmt(row[5]),
-          act: row[6] && String(row[6]).includes('ü'),
-          fycL12m: fmt(row[7]),
-          hdYtd: fmt(row[8]),
-          fycYtd: fmt(row[9]),
-          fypYtd: fmt(row[10]),
-          ipYtd: fmt(row[11]),
-        }
-      }).filter(m => m.hd !== null || m.fyc !== null || m.fyp !== null)
-    }
+        // A. PRU ELITE
+        peHienTai: r[COL.PE_HIENTAI],
+        fyc12m: fmt(r[COL.FYC_12M]),
+        act1: r[COL.ACT1], act2: r[COL.ACT2], act3: r[COL.ACT3],
+        tongHd3m: fmt(r[COL.TONGHD3M]),
+        tldtptt: fmt(r[COL.TLDTPTT]),
+        ketQuaTamTinh: r[COL.KQ_TAMTINH],
+        peDuKien: r[COL.PE_DUKIEN],
+        pe_nangTldtptt: r[COL.NANG_TLDTPTT],
+        pe_fycCanThem: fmt(r[COL.PE_FYC_CANTHEM]),
+        pe_thangCanThem: fmt(r[COL.PE_THANG_CANTHEM]),
 
-    // MDRT 2027: row 23
-    // [null, fyp12m, null, fyc12m, income12m, tamDat, tldtptt, tldtCanKP, q1, q2, q3, total2027]
-    const mdrtRow = raw[23] || []
+        // B. THƯỞNG QUÝ
+        fyc: fmt(r[COL.FYC_QUY]),
+        syc: fmt(r[COL.SYC_QUY]),
+        quy_tldtptt: fmt(r[COL.TLDTPTT_QUY]),
+        mucHoTro: r[COL.MUC_HO_TRO],
+        mucChiTra: r[COL.MUC_CHI_TRA],
+        thuongTamTinh: fmt(r[COL.THUONG_TAMTINH]),
+        fycCanThem: fmt(r[COL.FYC_TANG_MUC]),
+        quy_thuongTangThem: fmt(r[COL.THUONG_TANGTHER]),
 
-    // PRU ELITE: row 27
-    // [null, fyc12m, null, act1, act2, act3, soThangHd, tldtptt, peKimCuong(tamDat), fycCanThem, thangCanThem, tldtCanKP, bachKim]
-    const peRow = raw[27] || []
+        // C. MDRT 2027
+        fypYtd: fmt(r[COL.FYP_2026]),
+        mdrt_fypCanMdrt: fmt(r[COL.FYP_CAN_MDRT]),
+        mdrt_fypCanCot: fmt(r[COL.FYP_CAN_COT]),
+        mdrt_fypCanTot: fmt(r[COL.FYP_CAN_TOT]),
+        mdrt_otQ3: r[COL.MDRT_OT_Q3],
+        mdrt_otQ2: r[COL.MDRT_OT_Q2],
+        mdrt_otQ1: r[COL.MDRT_OT_Q1],
+        mdrt_daDat: r[COL.MDRT_DA_DAT],
+        mdrt2027_level: r[COL.MDRT2027_LEVEL],
+        mdrt2027_fypChiTieu: r[COL.MDRT2027_FYP_CHI_TIEU],
+        mdrt2027_fycChiTieu: r[COL.MDRT2027_FYC_CHI_TIEU],
+        mdrt2027_incomeChiTieu: r[COL.MDRT2027_INCOME_CHI_TIEU],
 
-    // THƯỞNG QUÝ: row 31
-    // [null, fycQuy, null, sycQuy, tldtptt, mucHoTro, mucChiTra, tienThuong, fycCanThem, tldtNangCao, chiTraCaoHon, thuongCaoHon]
-    const quyRow = raw[31] || []
+        // D. STAR CLUB
+        sc_slhd: fmt(r[COL.SC_SLHD]),
+        sc_tldtpttPromo: fmt(r[COL.SC_TLDTPTT]),
+        sc_tamDatPromo: r[COL.SC_TAMDAT],
+        sc_hs: fmt(r[COL.SC_HS]),
+        sc_tldtptt: fmt(r[COL.SC_TLDTPTT2]),
+        sc_tldthd: fmt(r[COL.SC_TLDTHD]),
+        sc_tongIp: r[COL.SC_TONG_IP],
+        sc_tamThoa: r[COL.SC_TAM_THOA],
+        sc_soVe: fmt(r[COL.SC_SO_VE]),
+        sc_ve: r[COL.SC_VE],
 
-    // STAR CLUB: row 39
-    // [null, soHd, tongIp, tldtptt, tldthd, tamThoa, tamDatVe, hdCanThem, ipCanThem, tldtCanThem, tldtHdCanThem, ve]
-    const scRow = raw[39] || []
-
-    // Enrich the agent matching templateCode in agList
-    const agSeg = raw[4]?.[7] // AG SEG col
-    const phone = raw[4]?.[10]
-
-    const monthly = parseMonthly(raw)
-
-    // Attach to matching agent
-    if (result.agList) {
-      result.agList = result.agList.map(ag => {
-        if (ag.msddl === templateCode) {
-          return {
-            ...ag,
-            agSeg: agSeg || ag.agSeg,
-            phone: phone || ag.phone,
-            monthly,
-            mdrt2027_fyp12m: fmt(mdrtRow[1]),
-            mdrt2027_fyc12m: fmt(mdrtRow[3]),
-            mdrt2027_tldtptt: fmt(mdrtRow[5]),
-            mdrt2027_tamDat: mdrtRow[6],
-            mdrt2027_q1: fmt(mdrtRow[7]),
-            mdrt2027_q2: fmt(mdrtRow[8]),
-            mdrt2027_q3: fmt(mdrtRow[9]),
-            mdrt2027_total: fmt(mdrtRow[10]),
-            pe_fyc12m: fmt(peRow[1]),
-            pe_tldtptt: fmt(peRow[7]),
-            pe_tamDatKimCuong: peRow[8],
-            pe_fycCanThem: fmt(peRow[9]),
-            pe_thangCanThem: fmt(peRow[10]),
-            pe_tldtCanKhoiPhuc: peRow[11],
-            quy_fyc: fmt(quyRow[1]),
-            quy_syc: fmt(quyRow[3]),
-            quy_tldtptt: fmt(quyRow[4]),
-            quy_mucHoTro: quyRow[5],
-            quy_mucChiTra: quyRow[6],
-            quy_tienThuong: fmt(quyRow[7]),
-            quy_fycCanThem: fmt(quyRow[8]),
-            quy_tldtNangCao: fmt(quyRow[9]),
-            quy_chiTraCaoHon: quyRow[10],
-            quy_thuongCaoHon: fmt(quyRow[11]),
-            sc_soHd: fmt(scRow[1]),
-            sc_tongIp: scRow[2],
-            sc_tldtptt: fmt(scRow[3]),
-            sc_tldthd: fmt(scRow[4]),
-            sc_tamThoa: scRow[5],
-            sc_tamDatVe: scRow[6],
-            sc_hdCanThem: fmt(scRow[7]),
-            sc_ipCanThem: scRow[8],
-            sc_tldtCanThem: scRow[9],
-            sc_ve: scRow[11],
-          }
-        }
-        return ag
-      })
-    }
+        // Monthly KQ from Tháng 5
+        monthly,
+      }
+    })
   }
 
   return result
@@ -328,14 +343,13 @@ export function formatNum(val) {
   const n = parseFloat(val)
   if (isNaN(n)) return '-'
   const rounded = Math.round(n * 10) / 10
-  if (rounded === Math.round(rounded)) return rounded.toFixed(0)
-  return rounded.toFixed(1)
+  return rounded === Math.round(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)
 }
 
 export function formatBig(val) {
   if (val === null || val === undefined) return '-'
   const n = parseFloat(val)
   if (isNaN(n)) return '-'
-  if (n >= 1000) return (Math.round(n / 10) / 100).toFixed(1) + 'T'
+  if (Math.abs(n) >= 1000) return (Math.round(n / 10) / 100).toFixed(1) + 'T'
   return formatNum(n)
 }
