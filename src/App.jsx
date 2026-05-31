@@ -16,7 +16,6 @@ const firebaseConfig = {
   messagingSenderId: "135229272496",
   appId: "1:135229272496:web:6ed8edfea116c6b274a675"
 };
-
 // =====================================
 
 const NAV_ITEMS = [
