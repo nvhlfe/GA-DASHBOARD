@@ -6,6 +6,7 @@ import DashboardTab from './components/DashboardTab'
 import GATab from './components/GATab'
 import UMTab from './components/UMTab'
 import TVVTab from './components/TVVTab'
+import SalesReportTab from './components/SalesReportTab'
 
 // ── Firebase config — tự động kết nối cho tất cả users ──────
 const FIREBASE_CONFIG = {
@@ -24,10 +25,12 @@ const NAV_ITEMS = [
   { id: 'ga',        label: 'GA',        icon: '🏢' },
   { id: 'um',        label: 'UM',        icon: '👤' },
   { id: 'tvv',       label: 'TVV',       icon: '🧑‍💼' },
+  { id: 'sales',     label: 'Sales Report', icon: '📋' },
 ]
 const TAB_TITLES = {
   dashboard: 'Dashboard Tổng Quan — GA D03 Quận 3',
   ga: 'GA Tổng Hợp', um: 'Danh Sách UM', tvv: 'Danh Sách TVV',
+  sales: 'D03 — Theo Dõi Doanh Số 2026',
 }
 
 const EMPTY_DATA = {
@@ -430,6 +433,7 @@ export default function App() {
             {activeTab === 'ga'        && <GATab        data={data} />}
             {activeTab === 'um'        && <UMTab        data={data} />}
             {activeTab === 'tvv'       && <TVVTab       data={data} />}
+            {activeTab === 'sales'     && <SalesReportTab />}
           </ErrorBoundary>
         )}
 

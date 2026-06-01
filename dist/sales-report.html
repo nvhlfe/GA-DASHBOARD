@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D03 - THEO DÕI DOANH SỐ 2026</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  
+<style>
+    body {
+      background: #f3f4f6;
+      font-family: Arial, sans-serif;
+    }
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    .delete-row-btn {
+      opacity: 0;
+      transition: all .2s;
+    }
+
+    tr:hover .delete-row-btn {
+      opacity: 1;
+    }
+
+</style>
+
+</head>
+<body>
+
+  <div class="max-w-[2400px] mx-auto p-4">
+
+    <div class="bg-white rounded-3xl shadow-lg p-6 mb-5">
+
+      <div class="flex flex-col xl:flex-row gap-4 justify-between items-end">
+
+        <div>
+          <h1 class="text-3xl font-bold text-gray-800">
+            D03 - THEO DÕI DOANH SỐ 2026
+          </h1>
+
+          <p class="text-gray-500 mt-1">
+            Dashboard quản lý doanh số theo ngày
+          </p>
+
+          <div id="realtimeClock" class="mt-3 text-sm font-semibold text-blue-600"></div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 items-end">
+
+          <div>
+            <label class="block text-sm font-semibold mb-2">
+              Tháng báo cáo
+            </label>
+
+            <select id="monthSelect" class="border rounded-xl px-4 py-3 min-w-[220px]"></select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold mb-2">
+              Xem theo ngày
+            </label>
+
+            <select
+              id="dayFilter"
+              onchange="applyDayFilter()"
+              class="border rounded-xl px-4 py-3 min-w-[180px]">
+
+              <option value="all">Tất cả ngày</option>
+
+            </select>
+          </div>
+
+          <button
+            onclick="showTab('report')"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-semibold">
+            REPORT
+          </button>
+
+          <button
+            onclick="showTab('overview')"
+            class="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-3 rounded-xl font-semibold">
+            OVERVIEW
+          </button>
+
+          <button
+            onclick="showTab('summary')"
+            class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl font-semibold">
+            TỔNG HỢP
+          </button>
+
+          <div>
+            <label class="block text-sm font-semibold mb-2">
+              Sắp xếp
+            </label>
+
+            <select id="sortSelect" onchange="applySorting()" class="border rounded-xl px-4 py-3 min-w-[220px]">
+              <option value="default">Mặc định</option>
+              <option value="group">Theo mã nhóm</option>
+              <option value="highest">Người nộp nhiều nhất</option>
+              <option value="issued">Người phát hành nhiều nhất</option>
+            </select>
+          </div>
+
+          <button
+            onclick="exportExcel()"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-semibold">
+            Export Excel
+          </button>
+
+          <button
+            onclick="addPerson()"
+            class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-xl font-semibold">
+            + Thêm người
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-4 text-sm text-blue-700 font-semibold">
+  * NHẤP VÀO Ô NGÀY ĐỂ THÊM HỒ SƠ
+</div>
+
+<div id="reportTab" class="bg-white rounded-3xl shadow-lg overflow-auto">
+
+      <table class="w-full border-collapse text-sm min-w-[2600px]">
+
+        <thead class="bg-gray-100 sticky top-0 z-10">
+          <tr id="dailySummaryHeader"></tr>
+          <tr id="tableHeader"></tr>
+        </thead>
+
+        <tbody id="reportBody"></tbody>
+
+      </table>
+
+    </div>
+
+    
+    <div id="overviewTab" class="hidden">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">TỔNG TVV</div>
+          <div id="ovAgents" class="text-4xl font-bold mt-3 text-blue-700">0</div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">PHÁT HÀNH</div>
+          <div id="ovIssued" class="text-4xl font-bold mt-3 text-green-700">0</div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">CÓ PHÍ</div>
+          <div id="ovPaid" class="text-4xl font-bold mt-3 text-yellow-700">0</div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">CHƯA PHÍ</div>
+          <div id="ovNoFee" class="text-4xl font-bold mt-3 text-red-700">0</div>
+        </div>
+
+      </div>
+
+      <div class="bg-white rounded-3xl shadow-lg overflow-auto">
+
+        <table class="w-full border-collapse text-sm min-w-[2600px]">
+
+          <thead id="overviewHead" class="bg-gray-100 sticky top-0 z-10"></thead>
+
+          <tbody id="overviewBody"></tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+
+<div id="summaryTab" class="hidden">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">TỔNG HỒ SƠ</div>
+          <div id="sumCases" class="text-4xl font-bold mt-3 text-blue-700">0</div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">TỔNG PHÍ ĐÓNG</div>
+          <div id="sumFee" class="text-4xl font-bold mt-3 text-purple-700">0</div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">PHÁT HÀNH</div>
+          <div id="sumIssued" class="text-4xl font-bold mt-3 text-green-700">0</div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">PENDING</div>
+          <div id="sumPending" class="text-4xl font-bold mt-3 text-yellow-700">0</div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg p-6">
+          <div class="text-gray-500 text-sm">CHƯA PHÍ</div>
+          <div id="sumNoFee" class="text-4xl font-bold mt-3 text-red-700">0</div>
+        </div>
+
+      </div>
+
+      <div class="bg-white rounded-3xl shadow-lg overflow-auto">
+
+        <table class="w-full border-collapse text-sm min-w-[1200px]">
+
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="border p-3">STT</th>
+              <th class="border p-3">MÃ NHÓM</th>
+              <th class="border p-3">MSDL</th>
+              <th class="border p-3">HỌ TÊN</th>
+              <th class="border p-3">SỐ HỒ SƠ</th>
+              <th class="border p-3">TỔNG PHÍ</th>
+              <th class="border p-3">PHÁT HÀNH</th>
+              <th class="border p-3">PENDING</th>
+              <th class="border p-3">CHƯA PHÍ</th>
+            </tr>
+          </thead>
+
+          <tbody id="summaryBody"></tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script type="module">
+
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      onSnapshot
+    } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC6pQL16It6EficYFP7yZSBKqQ56Gkfv-E",
+      authDomain: "ga-dashboard-59e2a.firebaseapp.com",
+      databaseURL: "https://ga-dashboard-59e2a-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "ga-dashboard-59e2a",
+      storageBucket: "ga-dashboard-59e2a.firebasestorage.app",
+      messagingSenderId: "135229272496",
+      appId: "1:135229272496:web:4c93a501821e4acc74a675"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let currentUser = null;
+    let userRole = 'viewer';
+
+    const monthSelect = document.getElementById('monthSelect');
+    const tableHeader = document.getElementById('tableHeader');
+    const dailySummaryHeader = document.getElementById('dailySummaryHeader');
+    const reportBody = document.getElementById('reportBody');
+    const summaryBody = document.getElementById('summaryBody');
+    const realtimeClock = document.getElementById('realtimeClock');
+
+    let reportData = [];
+
+    function initMonthOptions() {
+      for(let i = 1; i <= 12; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = `Tháng ${i}/2026`;
+
+        if(i === 5) option.selected = true;
+
+        monthSelect.appendChild(option);
+      }
+    }
+
+    function createDefaultData() {
+      return [
+        {
+          group: 'G01',
+          msdl: '100001',
+          name: 'Nguyễn Văn A',
+          daily: {}
+        }
+      ];
+    }
+
+    function getDaysInMonth(month) {
+      return new Date(2026, month, 0).getDate();
+    }
+
+    function updateRealtimeClock() {
+      const now = new Date();
+      realtimeClock.innerHTML = `${now.toLocaleDateString('vi-VN')} - ${now.toLocaleTimeString('vi-VN')}`;
+    }
+
+    function showTab(tab) {
+      document.getElementById('reportTab').classList.add('hidden');
+      document.getElementById('summaryTab').classList.add('hidden');
+      document.getElementById('overviewTab').classList.add('hidden');
+
+      if(tab === 'report') {
+        document.getElementById('reportTab').classList.remove('hidden');
+      }
+
+      if(tab === 'summary') {
+        document.getElementById('summaryTab').classList.remove('hidden');
+        renderSummary();
+      }
+
+      if(tab === 'overview') {
+        document.getElementById('overviewTab').classList.remove('hidden');
+        renderOverview();
+      }
+    }
+
+    function renderHeader() {
+
+      const month = parseInt(monthSelect.value);
+      const days = getDaysInMonth(month);
+
+      let summaryHtml = `
+        <th colspan="4" class="border p-3 bg-indigo-100 text-left font-bold text-indigo-700">
+          TỔNG PHÍ NỘP THEO NGÀY
+        </th>
+      `;
+
+      for(let day = 1; day <= days; day++) {
+
+        if(selectedDay !== 'all' && parseInt(selectedDay) !== day) {
+          continue;
+        }
+
+        let totalFeeInDay = 0;
+
+        reportData.forEach(person => {
+          const dayData = person.daily[day];
+
+          if(dayData && dayData.cases) {
+            dayData.cases.forEach(item => {
+              totalFeeInDay += Number(item.fee || 0);
+            });
+          }
+        });
+
+        summaryHtml += `
+          <th class="border p-2 text-center bg-indigo-50 min-w-[120px]">
+            <div class="text-[10px] text-gray-500">NGÀY ${day}</div>
+            <div class="text-lg font-bold text-indigo-700">
+              ${totalFeeInDay.toLocaleString()}
+            </div>
+          </th>
+        `;
+      }
+
+      summaryHtml += `<th colspan="4" class="border bg-indigo-100"></th>`;
+
+      dailySummaryHeader.innerHTML = summaryHtml;
+
+      let html = `
+        <th class="border p-3 bg-gray-200 min-w-[60px]">STT</th>
+        <th class="border p-3 bg-gray-200 min-w-[140px]">MÃ NHÓM</th>
+        <th class="border p-3 bg-gray-200 min-w-[140px]">MSDL</th>
+        <th class="border p-3 bg-gray-200 min-w-[240px]">HỌ TÊN</th>
+      `;
+
+      for(let day = 1; day <= days; day++) {
+
+        const dayOfWeek = new Date(2026, month - 1, day).getDay();
+
+        let bgClass = 'bg-gray-50';
+        let textClass = '';
+
+        if(dayOfWeek === 0) {
+          bgClass = 'bg-red-100';
+          textClass = 'text-red-700';
+        }
+
+        if(dayOfWeek === 6) {
+          bgClass = 'bg-yellow-100';
+          textClass = 'text-yellow-700';
+        }
+
+        html += `
+          <th class="border p-2 text-center min-w-[120px] ${bgClass}">
+            <div class="${textClass} font-bold">${day}</div>
+          </th>
+        `;
+      }
+
+      html += `
+        <th class="border p-3 bg-blue-100 min-w-[140px]">TỔNG PHÍ</th>
+        <th class="border p-3 bg-red-100 min-w-[140px]">CHƯA PHÍ</th>
+        <th class="border p-3 bg-green-100 min-w-[140px]">PHÁT HÀNH</th>
+        <th class="border p-3 bg-yellow-100 min-w-[180px]">CÓ PHÍ CHƯA PH</th>
+      `;
+
+      tableHeader.innerHTML = html;
+    }
+
+    function getStatusBg(status) {
+      switch(status) {
+        case 'paid':
+          return 'bg-yellow-100';
+        case 'issued':
+          return 'bg-green-100';
+        default:
+          return 'bg-red-100';
+      }
+    }
+
+    function renderTable() {
+
+      const month = parseInt(monthSelect.value);
+      const days = getDaysInMonth(month);
+
+      reportBody.innerHTML = '';
+
+      reportData.forEach((person, personIndex) => {
+
+        let totalFee = 0;
+        let noFee = 0;
+        let issued = 0;
+        let paidNotIssued = 0;
+
+        let row = `
+          <tr>
+            <td class="border p-2 text-center font-semibold">
+
+              <div class="flex items-center justify-center gap-1">
+
+                
+
+                <span>${personIndex + 1}</span>
+
+              </div>
+
+            </td>
+
+            <td class="border p-2 bg-gray-50">
+
+              <div class="flex items-center gap-2">
+
+                <button
+                  onclick="deletePerson(${personIndex})"
+                  class="w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none shrink-0">
+                  ×
+                </button>
+
+              <input
+                type="text"
+                value="${person.group}"
+                onchange="updateField(${personIndex}, 'group', this.value)"
+                class="w-full border rounded-lg px-2 py-2"
+              />
+            </td>
+
+            <td class="border p-2 bg-gray-50">
+              <input
+                type="text"
+                value="${person.msdl}"
+                onchange="updateField(${personIndex}, 'msdl', this.value)"
+                class="w-full border rounded-lg px-2 py-2"
+              />
+            </td>
+
+            <td class="border p-2 bg-gray-50">
+
+              <div class="flex items-center gap-2">
+
+                
+
+              <input
+                type="text"
+                value="${person.name}"
+                onchange="updateField(${personIndex}, 'name', this.value)"
+                class="w-full border rounded-lg px-3 py-2"
+              />
+
+              </div>
+
+            </td>
+        `;
+
+        for(let day = 1; day <= days; day++) {
+
+          if(selectedDay !== 'all' && parseInt(selectedDay) !== day) {
+            continue;
+          }
+
+          if(selectedDay !== 'all' && parseInt(selectedDay) !== day) {
+            continue;
+          }
+
+          const data = person.daily[day] || { cases: [] };
+
+          let cellIssued = 0;
+          let cellPaid = 0;
+          let cellNoFee = 0;
+
+          data.cases.forEach(item => {
+
+            const fee = Number(item.fee || 0);
+
+            totalFee += fee;
+
+            if(item.status === 'none') {
+              noFee += fee;
+              cellNoFee += fee;
+            }
+
+            if(item.status === 'issued') {
+              issued += fee;
+              cellIssued += fee;
+            }
+
+            if(item.status === 'paid') {
+              paidNotIssued += fee;
+              cellPaid += fee;
+            }
+          });
+
+          row += `
+            <td onclick="openCaseModal(${personIndex}, ${day})" class="border p-1 align-top bg-white cursor-pointer hover:bg-blue-50 transition-all">
+
+              <div class="flex flex-col gap-1 min-h-[60px]">
+
+                ${data.cases.map((item, caseIndex) => `
+                  <div class="border rounded p-1 bg-gray-50 flex flex-col gap-1">
+
+                    <div class="flex items-center justify-between">
+                      <div class="text-[10px] font-bold text-gray-500">
+                        HS ${caseIndex + 1}
+                      </div>
+
+                      <button
+                        onclick="deleteCase(${personIndex}, ${day}, ${caseIndex})"
+                        class="w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold leading-none flex items-center justify-center">
+                        ×
+                      </button>
+                    </div>
+
+                    <input
+                      type="number"
+                      value="${item.fee || ''}"
+                      placeholder="Phí"
+                      onchange="updateCaseFee(${personIndex}, ${day}, ${caseIndex}, this.value)"
+                      class="border rounded px-1 py-1 text-[10px] w-full"
+                    />
+
+                    <select
+                      onchange="updateCaseStatus(${personIndex}, ${day}, ${caseIndex}, this.value)"
+                      class="border rounded px-1 py-1 text-[10px] w-full ${getStatusBg(item.status)}">
+
+                      <option value="none" ${item.status === 'none' ? 'selected' : ''}>Chưa phí</option>
+                      <option value="paid" ${item.status === 'paid' ? 'selected' : ''}>Có phí</option>
+                      <option value="issued" ${item.status === 'issued' ? 'selected' : ''}>Phát hành</option>
+
+                    </select>
+
+                  </div>
+                `).join('')}
+
+              </div>
+
+            </td>
+          `;
+        }
+
+        row += `
+          <td class="border p-3 text-center font-bold bg-blue-50 text-blue-700">
+            ${totalFee.toLocaleString()}
+          </td>
+
+          <td class="border p-3 text-center font-bold bg-red-50 text-red-700">
+            ${noFee.toLocaleString()}
+          </td>
+
+          <td class="border p-3 text-center font-bold bg-green-50 text-green-700">
+            ${issued.toLocaleString()}
+          </td>
+
+          <td class="border p-3 text-center font-bold bg-yellow-50 text-yellow-700">
+            ${paidNotIssued.toLocaleString()}
+          </td>
+        `;
+
+        row += '</tr>';
+
+        reportBody.innerHTML += row;
+      });
+    }
+
+    function renderSummary() {
+
+      summaryBody.innerHTML = '';
+
+      let totalCases = 0;
+      let totalFeeAll = 0;
+      let totalIssuedAll = 0;
+      let totalPendingAll = 0;
+      let totalNoFeeAll = 0;
+
+      reportData.forEach((person, index) => {
+
+        let cases = 0;
+        let fee = 0;
+        let issued = 0;
+        let noFee = 0;
+
+        Object.values(person.daily).forEach(dayItem => {
+
+          if(!dayItem.cases) return;
+
+          dayItem.cases.forEach(item => {
+
+            const value = Number(item.fee || 0);
+
+            cases++;
+            fee += value;
+
+            if(item.status === 'issued') {
+              issued += value;
+            }
+
+            if(item.status === 'none') {
+              noFee += value;
+            }
+          });
+        });
+
+        const pending = fee - issued - noFee;
+
+        totalCases += cases;
+        totalFeeAll += fee;
+        totalIssuedAll += issued;
+        totalPendingAll += pending;
+        totalNoFeeAll += noFee;
+
+        summaryBody.innerHTML += `
+          <tr>
+            <td class="border p-3 text-center">${index + 1}</td>
+            <td class="border p-3 text-center">${person.group}</td>
+            <td class="border p-3 text-center">${person.msdl}</td>
+            <td class="border p-3">${person.name}</td>
+            <td class="border p-3 text-center font-bold">${cases}</td>
+            <td class="border p-3 text-center text-blue-700 font-bold">${fee.toLocaleString()}</td>
+            <td class="border p-3 text-center text-green-700 font-bold">${issued.toLocaleString()}</td>
+            <td class="border p-3 text-center text-yellow-700 font-bold">${pending.toLocaleString()}</td>
+            <td class="border p-3 text-center text-red-700 font-bold">${noFee.toLocaleString()}</td>
+          </tr>
+        `;
+      });
+
+      document.getElementById('sumCases').innerText = totalCases;
+      document.getElementById('sumFee').innerText = totalFeeAll.toLocaleString();
+      document.getElementById('sumIssued').innerText = totalIssuedAll.toLocaleString();
+      document.getElementById('sumPending').innerText = totalPendingAll.toLocaleString();
+      document.getElementById('sumNoFee').innerText = totalNoFeeAll.toLocaleString();
+    }
+
+    async function saveCurrentMonth() {
+
+      const month = monthSelect.value;
+
+      await setDoc(
+        doc(db, 'reports', month),
+        {
+          data: reportData,
+          updatedAt: new Date().toISOString()
+        }
+      );
+    }
+
+    function loadMonthData() {
+
+      const month = monthSelect.value;
+
+      onSnapshot(
+        doc(db, 'reports', month),
+        (snapshot) => {
+
+          if(snapshot.exists()) {
+            reportData = snapshot.data().data;
+          } else {
+            reportData = createDefaultData();
+          }
+
+          renderHeader();
+          renderTable();
+          renderSummary();
+          renderOverview();
+          initDayFilter();
+        }
+      );
+    }
+
+    function updateField(index, field, value) {
+
+      if(userRole !== 'admin') { openLoginModal(); return; }
+      reportData[index][field] = value;
+      saveCurrentMonth();
+    }
+
+    function addCase(personIndex, day) {
+
+      if(!reportData[personIndex].daily[day]) {
+        reportData[personIndex].daily[day] = { cases: [] };
+      }
+
+      reportData[personIndex].daily[day].cases.push({
+        fee: '',
+        status: 'none'
+      });
+
+      saveCurrentMonth();
+      renderHeader();
+      renderTable();
+    }
+
+    function updateCaseFee(personIndex, day, caseIndex, value) {
+
+      if(userRole !== 'admin') { openLoginModal(); return; }
+
+      reportData[personIndex].daily[day].cases[caseIndex].fee = value;
+
+      saveCurrentMonth();
+      renderHeader();
+      renderTable();
+    }
+
+    function updateCaseStatus(personIndex, day, caseIndex, value) {
+
+      if(userRole !== 'admin') { openLoginModal(); return; }
+
+      reportData[personIndex].daily[day].cases[caseIndex].status = value;
+
+      saveCurrentMonth();
+      renderHeader();
+      renderTable();
+    }
+
+    function deleteCase(personIndex, day, caseIndex) {
+
+      if(userRole !== 'admin') { openLoginModal(); return; }
+
+      reportData[personIndex].daily[day].cases.splice(caseIndex, 1);
+
+      if(reportData[personIndex].daily[day].cases.length === 0) {
+        delete reportData[personIndex].daily[day];
+      }
+
+      saveCurrentMonth();
+      renderHeader();
+      renderTable();
+    }
+
+    function addPerson() {
+
+      if(userRole !== 'admin') { openLoginModal(); return; }
+
+      reportData.push({
+        group: 'GROUP',
+        msdl: '000000',
+        name: 'Nhân sự mới',
+        daily: {}
+      });
+
+      saveCurrentMonth();
+      renderTable();
+    }
+
+    
+    let currentModalPerson = null;
+    let currentModalDay = null;
+
+    function openCaseModal(personIndex, day) {
+
+      if(userRole !== 'admin') { openLoginModal(); return; }
+
+      currentModalPerson = personIndex;
+      currentModalDay = day;
+
+      document.getElementById('modalFee').value = '';
+      document.getElementById('modalStatus').value = 'none';
+
+      document.getElementById('caseModal').classList.remove('hidden');
+    }
+
+    function closeCaseModal() {
+      document.getElementById('caseModal').classList.add('hidden');
+    }
+
+    function saveModalCase() {
+
+      const fee = document.getElementById('modalFee').value;
+      const status = document.getElementById('modalStatus').value;
+
+      if(!reportData[currentModalPerson].daily[currentModalDay]) {
+        reportData[currentModalPerson].daily[currentModalDay] = { cases: [] };
+      }
+
+      reportData[currentModalPerson].daily[currentModalDay].cases.push({
+        fee,
+        status
+      });
+
+      saveCurrentMonth();
+      renderHeader();
+      renderTable();
+      renderSummary();
+      renderOverview();
+
+      closeCaseModal();
+    }
+
+    function applySorting() {
+
+      const type = document.getElementById('sortSelect').value;
+
+      if(type === 'group') {
+
+        reportData.sort((a, b) => a.group.localeCompare(b.group));
+
+      } else if(type === 'highest') {
+
+        reportData.sort((a, b) => calculateTotal(b) - calculateTotal(a));
+
+      } else if(type === 'issued') {
+
+        reportData.sort((a, b) => calculateIssued(b) - calculateIssued(a));
+      }
+
+      renderHeader();
+      renderTable();
+      renderSummary();
+      renderOverview();
+    }
+
+    
+    function calculateIssued(person) {
+
+      let total = 0;
+
+      Object.values(person.daily).forEach(dayItem => {
+
+        if(!dayItem.cases) return;
+
+        dayItem.cases.forEach(item => {
+
+          if(item.status === 'issued') {
+            total += Number(item.fee || 0);
+          }
+
+        });
+
+      });
+
+      return total;
+    }
+
+
+    function calculateTotal(person) {
+
+      let total = 0;
+
+      Object.values(person.daily).forEach(dayItem => {
+
+        if(!dayItem.cases) return;
+
+        dayItem.cases.forEach(item => {
+          total += Number(item.fee || 0);
+        });
+
+      });
+
+      return total;
+    }
+
+    function renderOverview() {
+
+      const overviewHead = document.getElementById('overviewHead');
+      const overviewBody = document.getElementById('overviewBody');
+
+      if(!overviewHead || !overviewBody) return;
+
+      const month = parseInt(monthSelect.value);
+      const days = getDaysInMonth(month);
+
+      let head = `
+        <tr>
+          <th class="border p-3">STT</th>
+          <th class="border p-3 min-w-[240px]">TVV</th>
+      `;
+
+      for(let day = 1; day <= days; day++) {
+
+          
+
+        const dayOfWeek = new Date(2026, month - 1, day).getDay();
+
+        let bg = 'bg-gray-50';
+
+        if(dayOfWeek === 0) bg = 'bg-red-100';
+        if(dayOfWeek === 6) bg = 'bg-yellow-100';
+
+        head += `<th class="border p-3 ${bg}">${day}</th>`;
+      }
+
+      head += `
+          <th class="border p-3 bg-blue-100">Tổng</th>
+          <th class="border p-3 bg-green-100">PH</th>
+          <th class="border p-3 bg-yellow-100">CPF</th>
+          <th class="border p-3 bg-red-100">CF</th>
+        </tr>
+      `;
+
+      overviewHead.innerHTML = head;
+
+      overviewBody.innerHTML = '';
+
+      let ovIssued = 0;
+      let ovPaid = 0;
+      let ovNoFee = 0;
+
+      reportData.forEach((person, index) => {
+
+        let total = 0;
+        let issued = 0;
+        let paid = 0;
+        let noFee = 0;
+
+        let row = `
+          <tr>
+            <td class="border p-3 text-center">${index + 1}</td>
+
+            <td class="border p-3">
+              <div class="text-[11px] text-gray-400">${person.group} · ${person.msdl}</div>
+              <div class="font-bold">${person.name}</div>
+            </td>
+        `;
+
+        for(let day = 1; day <= days; day++) {
+
+          
+
+          if(selectedDay !== 'all' && parseInt(selectedDay) !== day) {
+            continue;
+          }
+
+          const data = person.daily[day] || { cases: [] };
+
+          let dayTotal = 0;
+          let classColor = '';
+
+          data.cases.forEach(item => {
+
+            const fee = Number(item.fee || 0);
+
+            dayTotal += fee;
+            total += fee;
+
+            if(item.status === 'issued') {
+              issued += fee;
+              classColor = 'text-green-700';
+            }
+
+            if(item.status === 'paid') {
+              paid += fee;
+              classColor = 'text-yellow-700';
+            }
+
+            if(item.status === 'none') {
+              noFee += fee;
+              classColor = 'text-red-700';
+            }
+          });
+
+          row += `
+            <td class="border p-2 text-center font-bold ${classColor}">
+              ${dayTotal ? dayTotal.toLocaleString() : ''}
+            </td>
+          `;
+        }
+
+        ovIssued += issued;
+        ovPaid += paid;
+        ovNoFee += noFee;
+
+        row += `
+          <td class="border p-3 text-center font-bold text-blue-700">${total.toLocaleString()}</td>
+          <td class="border p-3 text-center font-bold text-green-700">${issued.toLocaleString()}</td>
+          <td class="border p-3 text-center font-bold text-yellow-700">${paid.toLocaleString()}</td>
+          <td class="border p-3 text-center font-bold text-red-700">${noFee.toLocaleString()}</td>
+        </tr>
+        `;
+
+        overviewBody.innerHTML += row;
+      });
+
+      document.getElementById('ovAgents').innerText = reportData.length;
+      document.getElementById('ovIssued').innerText = ovIssued.toLocaleString();
+      document.getElementById('ovPaid').innerText = ovPaid.toLocaleString();
+      document.getElementById('ovNoFee').innerText = ovNoFee.toLocaleString();
+    }
+
+
+    
+
+    let selectedDay = 'all';
+
+    function initDayFilter() {
+
+      const filter = document.getElementById('dayFilter');
+
+      if(!filter) return;
+
+      const month = parseInt(monthSelect.value);
+      const days = getDaysInMonth(month);
+
+      filter.innerHTML = '<option value="all">Tất cả ngày</option>';
+
+      for(let day = 1; day <= days; day++) {
+
+        filter.innerHTML += `
+          <option value="${day}">
+            Ngày ${day}
+          </option>
+        `;
+      }
+    }
+
+    function applyDayFilter() {
+
+      selectedDay = document.getElementById('dayFilter').value;
+
+      renderHeader();
+      renderTable();
+      renderSummary();
+
+      if(typeof renderOverview === 'function') {
+        renderOverview();
+      }
+    }
+
+
+
+    function deletePerson(index) {
+
+      if(userRole !== 'admin') { openLoginModal(); return; }
+
+      const confirmDelete = confirm('Xóa dòng thông tin này?');
+
+      if(!confirmDelete) return;
+
+      reportData.splice(index, 1);
+
+      saveCurrentMonth();
+      renderHeader();
+      renderTable();
+      renderSummary();
+
+      if(typeof renderOverview === 'function') {
+        renderOverview();
+      }
+    }
+
+
+
+    function openLoginModal() {
+      document.getElementById('loginModal')
+        .classList.remove('hidden');
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal')
+        .classList.add('hidden');
+    }
+
+    async function loginDashboard() {
+
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+
+        await signInWithEmailAndPassword(auth, email, password);
+
+        closeLoginModal();
+
+      } catch(error) {
+
+        const box = document.getElementById('loginError');
+
+        box.innerText = 'Sai email hoặc mật khẩu';
+        box.classList.remove('hidden');
+      }
+    }
+
+    async function logoutDashboard() {
+      await signOut(auth);
+    }
+
+    function applyRolePermissions() {
+
+      const isAdmin = currentUser &&
+        currentUser.email === 'admin@d03.com';
+
+      userRole = isAdmin ? 'admin' : 'viewer';
+
+      const userBox = document.getElementById('currentUserBox');
+      const loginBtn = document.getElementById('loginBtn');
+
+      if(isAdmin) {
+
+        userBox.classList.remove('hidden');
+
+        userBox.innerHTML = `
+          <div class="flex items-center gap-3">
+
+            <div>
+              Xin chào <b>${currentUser.email}</b>
+            </div>
+
+            <button
+              onclick="logoutDashboard()"
+              class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs">
+              Logout
+            </button>
+
+          </div>
+        `;
+
+        loginBtn.classList.add('hidden');
+
+      } else {
+
+        userBox.classList.add('hidden');
+        loginBtn.classList.remove('hidden');
+      }
+    }
+
+
+function exportExcel() {
+
+      const workbook = XLSX.utils.book_new();
+
+      const summaryData = [
+        ['STT', 'MÃ NHÓM', 'MSDL', 'HỌ TÊN', 'SỐ HỒ SƠ', 'TỔNG PHÍ', 'PHÁT HÀNH', 'PENDING', 'CÓ PHÍ', 'CHƯA PHÍ']
+      ];
+
+      reportData.forEach((person, index) => {
+
+        let totalCases = 0;
+        let totalFee = 0;
+        let issued = 0;
+        let paid = 0;
+        let noFee = 0;
+
+        Object.values(person.daily).forEach(dayItem => {
+
+          if(!dayItem.cases) return;
+
+          dayItem.cases.forEach(item => {
+
+            const fee = Number(item.fee || 0);
+
+            totalCases++;
+            totalFee += fee;
+
+            if(item.status === 'issued') {
+              issued += fee;
+            }
+
+            if(item.status === 'paid') {
+              paid += fee;
+            }
+
+            if(item.status === 'none') {
+              noFee += fee;
+            }
+
+          });
+
+        });
+
+        const pending = totalFee - issued - noFee;
+
+        summaryData.push([
+          index + 1,
+          person.group,
+          person.msdl,
+          person.name,
+          totalCases,
+          totalFee,
+          issued,
+          pending,
+          paid,
+          noFee
+        ]);
+
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(summaryData);
+
+      XLSX.utils.book_append_sheet(workbook, ws, 'TONG_HOP');
+
+      XLSX.writeFile(workbook, 'D03_TONG_HOP_2026.xlsx');
+    }
+
+
+    window.showTab = showTab;
+    window.exportExcel = exportExcel;
+    window.addPerson = addPerson;
+
+    window.openCaseModal = openCaseModal;
+    window.closeCaseModal = closeCaseModal;
+    window.saveModalCase = saveModalCase;
+    window.applySorting = applySorting;
+    window.applyDayFilter = applyDayFilter;
+    window.deletePerson = deletePerson;
+    window.deleteCase = deleteCase;
+
+    window.openLoginModal = openLoginModal;
+    window.closeLoginModal = closeLoginModal;
+    window.loginDashboard = loginDashboard;
+    window.logoutDashboard = logoutDashboard;
+
+    window.updateField = updateField;
+    window.updateCaseFee = updateCaseFee;
+    window.updateCaseStatus = updateCaseStatus;
+
+    monthSelect.addEventListener('change', () => {
+      loadMonthData();
+    initDayFilter();
+      initDayFilter();
+    });
+
+    initDayFilter();
+
+    
+    onAuthStateChanged(auth, (user) => {
+
+      currentUser = user;
+
+      applyRolePermissions();
+    });
+
+
+    initMonthOptions();
+    loadMonthData();
+    updateRealtimeClock();
+
+    setInterval(updateRealtimeClock, 1000);
+
+  </script>
+
+
+  <div id="caseModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
+
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-2xl font-bold text-gray-800">Thêm Hồ Sơ</h2>
+
+        <button onclick="closeCaseModal()" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200">
+          ×
+        </button>
+      </div>
+
+      <div class="space-y-4">
+
+        <input type="number" id="modalFee" placeholder="Nhập phí đóng"
+          class="w-full border rounded-xl px-4 py-3" />
+
+        <select id="modalStatus" class="w-full border rounded-xl px-4 py-3">
+          <option value="none">Chưa phí</option>
+          <option value="paid">Có phí</option>
+          <option value="issued">Phát hành</option>
+        </select>
+
+        <button onclick="saveModalCase()"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 font-bold">
+          Lưu Hồ Sơ
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+<div class="fixed bottom-5 right-5 z-50 flex items-center gap-3">
+
+  <div id="currentUserBox"
+    class="hidden bg-white shadow-xl rounded-2xl px-4 py-3 text-sm font-semibold text-gray-700">
+  </div>
+
+  <button
+    id="loginBtn"
+    onclick="openLoginModal()"
+    class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl shadow-xl font-bold">
+    Đăng nhập chỉnh sửa
+  </button>
+
+</div>
+
+<div id="loginModal"
+  class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
+
+  <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
+
+    <div class="flex items-center justify-between mb-6">
+
+      <div>
+        <h2 class="text-3xl font-bold text-gray-800">
+          LOGIN
+        </h2>
+
+        <p class="text-gray-500 mt-1">
+          Đăng nhập để chỉnh sửa dữ liệu
+        </p>
+      </div>
+
+      <button
+        onclick="closeLoginModal()"
+        class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200">
+        ×
+      </button>
+
+    </div>
+
+    <div class="space-y-4">
+
+      <input
+        id="loginEmail"
+        type="email"
+        placeholder="Email"
+        class="w-full border rounded-2xl px-4 py-4" />
+
+      <input
+        id="loginPassword"
+        type="password"
+        placeholder="Mật khẩu"
+        class="w-full border rounded-2xl px-4 py-4" />
+
+      <button
+        onclick="loginDashboard()"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-2xl py-4 font-bold">
+        Đăng nhập
+      </button>
+
+      <div id="loginError"
+        class="hidden text-red-600 text-sm text-center"></div>
+
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>
