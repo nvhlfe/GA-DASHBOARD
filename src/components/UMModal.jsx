@@ -88,7 +88,7 @@ export default function UMModal({ um, onClose }) {
             <InfoBlock label="Mức Hỗ trợ" value={um.mucHoTro || '—'} color="#fb8500" />
             <InfoBlock label="Mức Chi trả" value={um.mucChiTra || '—'} color="#06d6a0" />
             <InfoBlock label="Tiền thưởng tạm đạt" value={formatNum(um.tienThuong)} color="#f72585" sub="triệu VND" />
-            <InfoBlock label="FYC để tăng mức thưởng" value={formatNum(um.fycTangMucThuong)} color="#ef476f" sub="triệu VND" />
+            <InfoBlock label="Lượt ACT cần thêm" value={formatNum(um.luotActCanThem)} color="#ef476f" />
             <InfoBlock label="Thưởng tăng thêm" value={formatNum(um.thuongTangThem)} color="#4361ee" sub="triệu VND" />
           </div>
 

@@ -7,6 +7,18 @@ import GATab from './components/GATab'
 import UMTab from './components/UMTab'
 import TVVTab from './components/TVVTab'
 
+// ── Firebase config — tự động kết nối cho tất cả users ──────
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC6pQL16It6EficYFP7yZSBKqQ56Gkfv-E",
+  authDomain: "ga-dashboard-59e2a.firebaseapp.com",
+  databaseURL: "https://ga-dashboard-59e2a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ga-dashboard-59e2a",
+  storageBucket: "ga-dashboard-59e2a.firebasestorage.app",
+  messagingSenderId: "135229272496",
+  appId: "1:135229272496:web:4c93a501821e4acc74a675",
+}
+// ─────────────────────────────────────────────────────────────
+
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Tổng quan', icon: '📊' },
   { id: 'ga',        label: 'GA',        icon: '🏢' },
@@ -256,15 +268,9 @@ export default function App() {
     }
   }
 
-  // Auto-load saved config from localStorage
+  // Auto-connect Firebase on mount using hardcoded config
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('fb_config')
-      if (saved) {
-        const cfg = JSON.parse(saved)
-        if (cfg.apiKey && cfg.databaseURL) connectFirebase(cfg)
-      }
-    } catch (e) { console.warn('No saved FB config') }
+    connectFirebase(FIREBASE_CONFIG)
     return () => { if (unsubRef.current) unsubRef.current() }
   }, [])
 

@@ -126,11 +126,10 @@ export default function TVVModal({ tvv, onClose }) {
 
           {/* === B. MDRT 2027 === */}
           <div className="section-divider">🏆 B. MDRT 2027</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
             <IB label="FYP Lũy kế 2026" value={formatNum(tvv.fypYtd)} color="#4361ee" sub="triệu VND" />
             <IB label="FYC 12T vừa qua" value={formatNum(tvv.fyc12m)} color="#f72585" sub="triệu VND" />
             <IB label="TLDTPTT" value={fmtPct(tvv.tldtptt)} color="#7209b7" />
-            <IB label="MDRT OT Tạm Đạt" value={<MdrtBadge val={tvv.mdrt2027_level} />} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
             <IB label="FYP Cần — ON TRACK Q1" value={formatNum(tvv.mdrt_fypCanMdrt)} color="#ef476f" sub="triệu VND" />
