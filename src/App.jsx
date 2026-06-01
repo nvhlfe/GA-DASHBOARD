@@ -36,11 +36,11 @@ const TAB_TITLES = {
 const EMPTY_DATA = {
   kpis: { netManpower:72, fycThang:121.2, fypThang:506.7, apeNet:545.7, ipNet:490, caseNet:20, fycYtd:848.9, ipNetYtd:3273.7, apeNetYtd:3457.5, fypYtd:3333.0, syc:51.3, ryc:81.9, tongDaiLy:408, activeFyc:7, activeCase:11, mdrt:0 },
   topAgents: [
-    { code:'60792209', name:'PHẠM HOÀNG THÁI TÀI', level:'AG', fyc:34.9, ape:137.2, caseNet:6.5 },
-    { code:'60789390', name:'NGUYỄN VĂN LỢI QUÝ',  level:'AG', fyc:21.6, ape:92.5,  caseNet:2.5 },
-    { code:'60532739', name:'LÊ VĂN XÈN',           level:'AG', fyc:18.1, ape:75.0,  caseNet:3.0 },
-    { code:'60804930', name:'PHẠM THẢO NGUYÊN',     level:'AG', fyc:12.7, ape:55.9,  caseNet:2.0 },
-    { code:'60032137', name:'VŨ THỊ MINH TUYẾT',    level:'AG', fyc:11.5, ape:42.5,  caseNet:2.0 },
+    { code:'60792209', name:'PHẠM HOÀNG THÁI TÀI', level:'AG', fyp:220.0, fyc:34.9, ape:137.2, caseNet:6.5 },
+    { code:'60789390', name:'NGUYỄN VĂN LỢI QUÝ',  level:'AG', fyp:185.0, fyc:21.6, ape:92.5,  caseNet:2.5 },
+    { code:'60532739', name:'LÊ VĂN XÈN',           level:'AG', fyp:160.0, fyc:18.1, ape:75.0,  caseNet:3.0 },
+    { code:'60804930', name:'PHẠM THẢO NGUYÊN',     level:'AG', fyp:120.0, fyc:12.7, ape:55.9,  caseNet:2.0 },
+    { code:'60032137', name:'VŨ THỊ MINH TUYẾT',    level:'AG', fyp:95.0, fyc:11.5, ape:42.5,  caseNet:2.0 },
   ],
   levelDist: [{ name:'AG', value:401 }, { name:'UM', value:7 }],
   officeData: [{ vanPhong:'GA710 - Quận 3', netMp:72, fyc:121.2, apeNet:545.7, caseNet:20 }],

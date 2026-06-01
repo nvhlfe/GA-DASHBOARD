@@ -138,30 +138,45 @@
 
   /* Day cell */
   .day-cell {
-    cursor: pointer; min-width: 68px; max-width: 68px;
+    cursor: pointer; min-width: 90px; max-width: 90px;
     min-height: 38px; padding: 3px !important;
     transition: background .12s;
   }
   .day-cell:hover { background: #eff6ff !important; }
-  .case-pill {
-    display: flex; align-items: center; justify-content: space-between;
-    border-radius: 5px; padding: 2px 4px; margin-bottom: 2px;
-    font-size: 10px; font-weight: 600;
+  /* ── Case card ── */
+  .case-card {
+    border-radius: 6px; padding: 3px 5px; margin-bottom: 3px;
+    border: 1.5px solid transparent;
   }
-  .case-pill.none   { background: #fee2e2; color: #991b1b; }
-  .case-pill.paid   { background: #fef9c3; color: #854d0e; }
-  .case-pill.issued { background: #dcfce7; color: #166534; }
+  .case-card.none   { background: #fee2e2; border-color: #fca5a5; }
+  .case-card.paid   { background: #fef9c3; border-color: #fde68a; }
+  .case-card.issued { background: #dcfce7; border-color: #86efac; }
+  .case-card-top {
+    display: flex; align-items: center; gap: 3px; margin-bottom: 3px;
+  }
+  .case-fee-input {
+    font-size: 10.5px; border: none; background: transparent;
+    outline: none; font-weight: 700; cursor: text; font-family: inherit;
+    flex: 1; min-width: 0; color: inherit;
+  }
   .case-pill-del {
-    width: 13px; height: 13px; border-radius: 50%;
-    background: rgba(0,0,0,.15); border: none; cursor: pointer;
-    font-size: 9px; line-height: 1; display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
+    width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(0,0,0,.12); border: none; cursor: pointer;
+    font-size: 9px; display: flex; align-items: center; justify-content: center;
+    color: inherit;
   }
   .case-pill-del:hover { background: #ef4444; color: #fff; }
-  .case-fee-input {
-    font-size: 10px; width: 100%; border: none; background: transparent;
-    outline: none; font-weight: 600; cursor: text; font-family: inherit;
+  .status-btns { display: flex; gap: 2px; }
+  .status-btn {
+    flex: 1; border: none; border-radius: 4px; cursor: pointer;
+    font-size: 9px; font-weight: 700; padding: 2px 0; font-family: inherit;
+    opacity: 0.38; transition: opacity .12s, transform .1s; white-space: nowrap;
   }
+  .status-btn:hover  { opacity: 0.7; }
+  .status-btn.active { opacity: 1; transform: scale(1.05); box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  .status-btn.s-none   { background: #fca5a5; color: #7f1d1d; }
+  .status-btn.s-paid   { background: #fde68a; color: #78350f; }
+  .status-btn.s-issued { background: #86efac; color: #14532d; }
 
   /* Inline editable */
   .editable-input {
@@ -252,12 +267,7 @@
     padding: 4px 9px; font-size: 10.5px; font-weight: 600; cursor: pointer;
   }
 
-  /* Status select inside cell */
-  .status-sel {
-    font-size: 9.5px; border: none; border-radius: 4px;
-    padding: 1px 2px; cursor: pointer; font-family: inherit;
-    font-weight: 600; background: transparent; outline: none; width: 100%;
-  }
+
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -586,26 +596,26 @@ function renderTable() {
       });
 
       const pills = data.cases.map((item, ci) => `
-        <div class="case-pill ${statusBadge(item.status)}" onclick="event.stopPropagation()">
-          <input
-            type="number"
-            value="${item.fee || ''}"
-            placeholder="Phí"
-            onchange="updateCaseFee(${pi},${d},${ci},this.value)"
-            onclick="event.stopPropagation()"
-            class="case-fee-input"
-            style="color:inherit;width:42px"
-          />
-          <select
-            onchange="updateCaseStatus(${pi},${d},${ci},this.value)"
-            onclick="event.stopPropagation()"
-            class="status-sel ${statusBadge(item.status)}"
-            style="color:inherit">
-            <option value="none"   ${item.status==='none'   ?'selected':''}>CF</option>
-            <option value="paid"   ${item.status==='paid'   ?'selected':''}>CP</option>
-            <option value="issued" ${item.status==='issued' ?'selected':''}>PH</option>
-          </select>
-          <button onclick="event.stopPropagation();deleteCase(${pi},${d},${ci})" class="case-pill-del">×</button>
+        <div class="case-card ${statusBadge(item.status)}" onclick="event.stopPropagation()">
+          <div class="case-card-top">
+            <input
+              type="number"
+              value="${item.fee || ''}"
+              placeholder="0"
+              onchange="updateCaseFee(${pi},${d},${ci},this.value)"
+              onclick="event.stopPropagation()"
+              class="case-fee-input"
+            />
+            <button onclick="event.stopPropagation();deleteCase(${pi},${d},${ci})" class="case-pill-del">×</button>
+          </div>
+          <div class="status-btns">
+            <button onclick="event.stopPropagation();updateCaseStatus(${pi},${d},${ci},'none')"
+              class="status-btn s-none ${item.status==='none'?'active':''}">Chưa phí</button>
+            <button onclick="event.stopPropagation();updateCaseStatus(${pi},${d},${ci},'paid')"
+              class="status-btn s-paid ${item.status==='paid'?'active':''}">Có phí</button>
+            <button onclick="event.stopPropagation();updateCaseStatus(${pi},${d},${ci},'issued')"
+              class="status-btn s-issued ${item.status==='issued'?'active':''}">Phát hành</button>
+          </div>
         </div>
       `).join('');
 

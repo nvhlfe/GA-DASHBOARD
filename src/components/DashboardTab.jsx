@@ -59,7 +59,7 @@ export default function DashboardTab({ data }) {
         <div className="card">
           <div className="section-header">
             <div className="section-icon">🏆</div>
-            TOP ĐẠI LÝ THEO FYC
+            TOP ĐẠI LÝ THEO FYP
           </div>
           <table className="data-table">
             <thead>
@@ -68,9 +68,9 @@ export default function DashboardTab({ data }) {
                 <th>Tên đại lý</th>
                 <th>Mã</th>
                 <th>Cấp bậc</th>
+                <th>FYP</th>
                 <th>FYC</th>
                 <th>APE NET</th>
-                <th>Case</th>
               </tr>
             </thead>
             <tbody>
@@ -84,15 +84,15 @@ export default function DashboardTab({ data }) {
                   <td style={{ color: '#4361ee', fontWeight: 600, fontSize: 11.5 }}>{ag.name}</td>
                   <td style={{ color: '#8896aa', fontSize: 11 }}>{ag.code}</td>
                   <td><span className={`level-badge level-${ag.level}`}>{ag.level}</span></td>
+                  <td className="val-fyp">{formatNum(ag.fyp)}</td>
                   <td className="val-fyc">{formatNum(ag.fyc)}</td>
                   <td className="val-ape">{formatNum(ag.ape)}</td>
-                  <td>{formatNum(ag.caseNet)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <div style={{ marginTop: 10, fontSize: 11.5, color: '#8896aa' }}>
-            Hiển thị {Math.min(top.length, 11)}/{top.length} đại lý
+            Top 11 theo FYP · {top.length} đại lý
           </div>
         </div>
 
