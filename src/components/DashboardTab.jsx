@@ -70,7 +70,7 @@ export default function DashboardTab({ data }) {
                 <th>Cấp bậc</th>
                 <th>FYP</th>
                 <th>FYC</th>
-                <th>APE NET</th>
+                <th>IP NET</th>
               </tr>
             </thead>
             <tbody>
@@ -86,7 +86,7 @@ export default function DashboardTab({ data }) {
                   <td><span className={`level-badge level-${ag.level}`}>{ag.level}</span></td>
                   <td className="val-fyp">{formatNum(ag.fyp)}</td>
                   <td className="val-fyc">{formatNum(ag.fyc)}</td>
-                  <td className="val-ape">{formatNum(ag.ape)}</td>
+                  <td style={{color:"#fb8500",fontWeight:600}}>{formatNum(ag.ipNet)}</td>
                 </tr>
               ))}
             </tbody>

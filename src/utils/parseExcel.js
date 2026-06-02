@@ -90,16 +90,17 @@ function extractData(wb) {
     d03rows.forEach(r => {
       const code = String(r[C.AGCODE] || '').trim()
       if (!code) return
-      if (!agentMap[code]) agentMap[code] = { code, name: r[C.AGNAME], level: r[C.AGLEVEL], branch: r[C.BRANCH], fyc: 0, fyp: 0, ape: 0, caseNet: 0, syc: 0 }
+      if (!agentMap[code]) agentMap[code] = { code, name: r[C.AGNAME], level: r[C.AGLEVEL], branch: r[C.BRANCH], fyc: 0, fyp: 0, ape: 0, ipNet: 0, caseNet: 0, syc: 0 }
       agentMap[code].fyc += parseFloat(r[C.FYC]) || 0
       agentMap[code].fyp += parseFloat(r[C.FYP]) || 0
+      agentMap[code].ipNet += parseFloat(r[C.IP_NET]) || 0
       agentMap[code].ape += parseFloat(r[C.APE_NET]) || 0
       agentMap[code].caseNet += parseFloat(r[C.CASE_NET]) || 0
       agentMap[code].syc += parseFloat(r[C.SYC]) || 0
     })
     result.topAgents = Object.values(agentMap)
       .sort((a, b) => b.fyp - a.fyp).slice(0, 11)
-      .map(a => ({ ...a, fyc: fmt(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape), caseNet: fmt(a.caseNet), syc: fmt(a.syc) }))
+      .map(a => ({ ...a, fyc: fmt(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape), ipNet: fmt(a.ipNet), caseNet: fmt(a.caseNet), syc: fmt(a.syc) }))
 
     result.levelDist = Object.entries(
       d03rows.reduce((acc, r) => { const lv = r[C.AGLEVEL] || 'Other'; acc[lv] = (acc[lv] || 0) + 1; return acc }, {})

@@ -138,42 +138,44 @@
 
   /* Day cell */
   .day-cell {
-    cursor: pointer; min-width: 90px; max-width: 90px;
-    min-height: 38px; padding: 3px !important;
-    transition: background .12s;
+    cursor: pointer; width: 86px; min-width: 86px; max-width: 86px;
+    min-height: 34px; padding: 3px !important;
+    transition: background .12s; overflow: hidden;
   }
   .day-cell:hover { background: #eff6ff !important; }
-  /* ── Case card ── */
+  /* Case card */
   .case-card {
-    border-radius: 6px; padding: 3px 5px; margin-bottom: 3px;
-    border: 1.5px solid transparent;
+    border-radius: 5px; padding: 2px 3px; margin-bottom: 2px;
+    border: 1.5px solid transparent; overflow: hidden;
+    width: 100%; box-sizing: border-box;
   }
   .case-card.none   { background: #fee2e2; border-color: #fca5a5; }
   .case-card.paid   { background: #fef9c3; border-color: #fde68a; }
   .case-card.issued { background: #dcfce7; border-color: #86efac; }
   .case-card-top {
-    display: flex; align-items: center; gap: 3px; margin-bottom: 3px;
+    display: flex; align-items: center; gap: 2px; margin-bottom: 2px;
   }
   .case-fee-input {
-    font-size: 10.5px; border: none; background: transparent;
+    font-size: 10px; border: none; background: transparent;
     outline: none; font-weight: 700; cursor: text; font-family: inherit;
     flex: 1; min-width: 0; color: inherit;
   }
   .case-pill-del {
-    width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
     background: rgba(0,0,0,.12); border: none; cursor: pointer;
     font-size: 9px; display: flex; align-items: center; justify-content: center;
-    color: inherit;
+    color: inherit; line-height: 1;
   }
   .case-pill-del:hover { background: #ef4444; color: #fff; }
-  .status-btns { display: flex; gap: 2px; }
+  .status-btns { display: flex; gap: 2px; width: 100%; }
   .status-btn {
-    flex: 1; border: none; border-radius: 4px; cursor: pointer;
-    font-size: 9px; font-weight: 700; padding: 2px 0; font-family: inherit;
-    opacity: 0.38; transition: opacity .12s, transform .1s; white-space: nowrap;
+    flex: 1; border: none; border-radius: 3px; cursor: pointer;
+    font-size: 9px; font-weight: 800; padding: 2px 1px; font-family: inherit;
+    opacity: 0.32; transition: opacity .12s, transform .1s;
+    text-align: center; overflow: hidden;
   }
-  .status-btn:hover  { opacity: 0.7; }
-  .status-btn.active { opacity: 1; transform: scale(1.05); box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  .status-btn:hover  { opacity: 0.65; }
+  .status-btn.active { opacity: 1; transform: scale(1.06); box-shadow: 0 1px 4px rgba(0,0,0,.2); }
   .status-btn.s-none   { background: #fca5a5; color: #7f1d1d; }
   .status-btn.s-paid   { background: #fde68a; color: #78350f; }
   .status-btn.s-issued { background: #86efac; color: #14532d; }
@@ -610,11 +612,11 @@ function renderTable() {
           </div>
           <div class="status-btns">
             <button onclick="event.stopPropagation();updateCaseStatus(${pi},${d},${ci},'none')"
-              class="status-btn s-none ${item.status==='none'?'active':''}">Chưa phí</button>
+              class="status-btn s-none ${item.status==='none'?'active':''}" title="Chưa phí">CF</button>
             <button onclick="event.stopPropagation();updateCaseStatus(${pi},${d},${ci},'paid')"
-              class="status-btn s-paid ${item.status==='paid'?'active':''}">Có phí</button>
+              class="status-btn s-paid ${item.status==='paid'?'active':''}" title="Có phí (chưa PH)">CP</button>
             <button onclick="event.stopPropagation();updateCaseStatus(${pi},${d},${ci},'issued')"
-              class="status-btn s-issued ${item.status==='issued'?'active':''}">Phát hành</button>
+              class="status-btn s-issued ${item.status==='issued'?'active':''}" title="Phát hành">PH</button>
           </div>
         </div>
       `).join('');

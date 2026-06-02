@@ -234,6 +234,8 @@ export default function App() {
   const [toast,       setToast]       = useState(null)
   const [dragOver,    setDragOver]    = useState(false)
   const [showFBSetup, setShowFBSetup] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isMobile,    setIsMobile]    = useState(window.innerWidth <= 768)
   const fileInputRef = useRef()
   const unsubRef     = useRef(null)
   const dbRef        = useRef(null)
@@ -275,6 +277,17 @@ export default function App() {
   useEffect(() => {
     connectFirebase(FIREBASE_CONFIG)
     return () => { if (unsubRef.current) unsubRef.current() }
+  }, [])
+
+  // Mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768
+      setIsMobile(mobile)
+      if (!mobile) setSidebarOpen(true)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   const handleFBSave = (cfg) => {
@@ -329,7 +342,12 @@ export default function App() {
       onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]) }}>
 
       {/* ── SIDEBAR ── */}
-      <aside className="sidebar">
+      {/* Mobile overlay */}
+      {isMobile && sidebarOpen && (
+        <div className="sidebar-overlay visible" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <aside className={`sidebar${!isMobile && !sidebarOpen ? ' collapsed' : ''}${isMobile && sidebarOpen ? ' mobile-open' : ''}${isMobile && !sidebarOpen ? '' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-icon">G</div>
           <span>GA D03 Dashboard</span>
@@ -390,9 +408,18 @@ export default function App() {
       </aside>
 
       {/* ── MAIN ── */}
-      <main className="main-content">
+      <main className={`main-content${!isMobile && !sidebarOpen ? ' sidebar-collapsed' : ''}`}>
         <div className="topbar">
-          <div className="topbar-title">{TAB_TITLES[activeTab]}</div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <button
+              className="sidebar-toggle-btn"
+              onClick={() => setSidebarOpen(v => !v)}
+              title={sidebarOpen ? 'Ẩn sidebar' : 'Hiện sidebar'}
+            >
+              {sidebarOpen ? '◀' : '▶'}
+            </button>
+            <div className="topbar-title">{TAB_TITLES[activeTab]}</div>
+          </div>
           <div className="topbar-actions">
             {/* Firebase badge in topbar */}
             <div style={{
@@ -452,6 +479,22 @@ export default function App() {
       <input ref={fileInputRef} type="file" accept=".xlsx,.xls"
         style={{ display:'none' }}
         onChange={e => { handleFile(e.target.files[0]); e.target.value = '' }} />
+
+      {/* Mobile bottom nav */}
+      <nav className="mobile-bottom-nav">
+        {NAV_ITEMS.map(item => (
+          <button key={item.id}
+            className={`mob-nav-item${activeTab === item.id ? ' active' : ''}`}
+            onClick={() => { setActiveTab(item.id) }}>
+            <span className="mob-icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+        <button className="mob-nav-item" onClick={() => fileInputRef.current?.click()}>
+          <span className="mob-icon">📤</span>
+          <span>Upload</span>
+        </button>
+      </nav>
 
       {showFBSetup && (
         <FirebaseSetupModal
