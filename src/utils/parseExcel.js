@@ -36,19 +36,27 @@ export async function parseExcelFile(file) {
 function extractData(wb) {
   const result = {}
 
-  // ===== THÁNG 5 → Dashboard KPIs + monthly per-agent data =====
-  const agentMonthly = {}  // keyed by AGCode string
+  // ===== TẤT CẢ SHEET THÁNG X → Dashboard KPIs + monthly per-agent =====
+  // Đọc tất cả sheet có tên "Tháng N" (1-12), lấy sheet mới nhất cho KPI
+  const agentMonthly = {}
 
-  if (wb.SheetNames.includes('Tháng 5')) {
-    const ws = wb.Sheets['Tháng 5']
+  // Helper: parse 1 sheet tháng, trả về { headers, allRows, d03rows, C, sheetMonth }
+  function parseMonthSheet(wsName) {
+    const ws = wb.Sheets[wsName]
+    if (!ws) return null
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
-    const headers = raw[1] || []
-    const allRows = raw.slice(2)
+    // Tháng 5 có extra row 0 (số thứ tự cột), Tháng 6+ header ở row 0
+    // Detect: if row[0][0] là số (1,2,3...) → header ở row[1], data từ row[2]
+    //         nếu row[0][0] là string 'YearMonth' → header ở row[0], data từ row[1]
+    let headerRow, dataStart
+    if (raw[0] && String(raw[0][0]).match(/^\d+$/)) {
+      headerRow = raw[1] || []; dataStart = 2
+    } else {
+      headerRow = raw[0] || []; dataStart = 1
+    }
+    const allRows = raw.slice(dataStart)
     const d03rows = allRows.filter(r => r[11] === 'D03')
-
-    // Column index finder
-    const col = (name) => headers.indexOf(name)
-
+    const col = (name) => headerRow.indexOf(name)
     const C = {
       AGCODE: col('AGCode'), AGNAME: col('AGName'), AGLEVEL: col('AGLevel'),
       BRANCH: col('BranchCode'), UNIT: col('UnitCode'),
@@ -58,52 +66,77 @@ function extractData(wb) {
       FYP_YTD: col('FYP YTD'), SYC: col('SYC'), RYC: col('RYC'),
       ACT_FYC: col('Active Net (FYC)'), ACT_CASE: col('Active Net (Case)'),
       MDRT: col('MDRT Title'), TLDTPTT: col('TLDTPTT'),
-      FYC_QTD: col('FYC QTD'), FYC_L9M: col('FYC L9M'), FYC_L12M: col('FYC L12M'),
-      FYP_BASE: col('FYP Base'), ACT_MONTH_QTD: col('Active month QTD'),
-      IP_SUB: col('IP Sub'), APE_SUB: col('APE Sub'), CASE_SUB: col('Case Sub'),
+      FYC_L12M: col('FYC L12M'), APE_SUB: col('APE Sub'),
       MONTH: col('YearMonth'),
     }
+    // Detect sheet month number from name "Tháng N"
+    const mNum = parseInt(wsName.replace(/[^0-9]/g, ''))
+    return { C, d03rows, allRows, mNum }
+  }
 
-    const sum = (c) => d03rows.reduce((acc, r) => acc + (parseFloat(r[c]) || 0), 0)
+  // Collect all Tháng sheets sorted by month number
+  const thangSheets = wb.SheetNames
+    .filter(n => /^Tháng\s*\d+$/i.test(n))
+    .sort((a, b) => {
+      const ma = parseInt(a.replace(/[^0-9]/g, ''))
+      const mb = parseInt(b.replace(/[^0-9]/g, ''))
+      return ma - mb
+    })
+
+  // Latest sheet → KPIs & top agents
+  const latestSheetName = thangSheets[thangSheets.length - 1]
+  const latestSheet = latestSheetName ? parseMonthSheet(latestSheetName) : null
+
+  if (latestSheet) {
+    const { C, d03rows } = latestSheet
+    const sum = (ci) => d03rows.reduce((acc, r) => acc + (parseFloat(r[ci]) || 0), 0)
 
     result.kpis = {
       netManpower: fmtInt(sum(C.NET_MP)),
-      fycThang: fmt(sum(C.FYC)),
-      fypThang: fmt(sum(C.FYP)),
-      apeNet: fmt(sum(C.APE_NET)),
-      ipNet: fmtInt(sum(C.IP_NET)),
-      caseNet: fmtInt(sum(C.CASE_NET)),
-      fycYtd: fmt(sum(C.FYC_YTD)),
-      ipNetYtd: fmt(sum(C.IP_YTD)),
-      apeNetYtd: fmt(sum(C.APE_YTD)),
-      fypYtd: fmt(sum(C.FYP_YTD)),
-      syc: fmt(sum(C.SYC)),
-      ryc: fmt(sum(C.RYC)),
-      tongDaiLy: d03rows.length,
-      activeFyc: fmtInt(sum(C.ACT_FYC)),
-      activeCase: fmtInt(sum(C.ACT_CASE)),
-      mdrt: d03rows.filter(r => r[C.MDRT] && r[C.MDRT] !== 'Not MDRT').length,
+      fycThang:    fmt(sum(C.FYC)),
+      fypThang:    fmt(sum(C.FYP)),
+      apeNet:      fmt(sum(C.APE_NET)),
+      ipNet:       fmtInt(sum(C.IP_NET)),
+      caseNet:     fmtInt(sum(C.CASE_NET)),
+      fycYtd:      fmt(sum(C.FYC_YTD)),
+      ipNetYtd:    fmt(sum(C.IP_YTD)),
+      apeNetYtd:   fmt(sum(C.APE_YTD)),
+      fypYtd:      fmt(sum(C.FYP_YTD)),
+      syc:         fmt(sum(C.SYC)),
+      ryc:         fmt(sum(C.RYC)),
+      tongDaiLy:   d03rows.length,
+      activeFyc:   fmtInt(sum(C.ACT_FYC)),
+      activeCase:  fmtInt(sum(C.ACT_CASE)),
+      mdrt:        d03rows.filter(r => r[C.MDRT] && r[C.MDRT] !== 'Not MDRT').length,
+      dataMonth:   latestSheet.mNum,  // tháng mấy
     }
 
-    // Top agents by FYC
     const agentMap = {}
     d03rows.forEach(r => {
       const code = String(r[C.AGCODE] || '').trim()
       if (!code) return
-      if (!agentMap[code]) agentMap[code] = { code, name: r[C.AGNAME], level: r[C.AGLEVEL], branch: r[C.BRANCH], fyc: 0, fyp: 0, ape: 0, ipNet: 0, caseNet: 0, syc: 0 }
-      agentMap[code].fyc += parseFloat(r[C.FYC]) || 0
-      agentMap[code].fyp += parseFloat(r[C.FYP]) || 0
-      agentMap[code].ipNet += parseFloat(r[C.IP_NET]) || 0
-      agentMap[code].ape += parseFloat(r[C.APE_NET]) || 0
-      agentMap[code].caseNet += parseFloat(r[C.CASE_NET]) || 0
-      agentMap[code].syc += parseFloat(r[C.SYC]) || 0
+      if (!agentMap[code]) agentMap[code] = {
+        code, name: r[C.AGNAME], level: r[C.AGLEVEL], branch: r[C.BRANCH],
+        fyc: 0, fyp: 0, ape: 0, ipNet: 0, caseNet: 0, syc: 0
+      }
+      agentMap[code].fyc    += parseFloat(r[C.FYC])    || 0
+      agentMap[code].fyp    += parseFloat(r[C.FYP])    || 0
+      agentMap[code].ipNet  += parseFloat(r[C.IP_NET]) || 0
+      agentMap[code].ape    += parseFloat(r[C.APE_NET])|| 0
+      agentMap[code].caseNet+= parseFloat(r[C.CASE_NET])|| 0
+      agentMap[code].syc    += parseFloat(r[C.SYC])    || 0
     })
     result.topAgents = Object.values(agentMap)
       .sort((a, b) => b.fyp - a.fyp).slice(0, 11)
-      .map(a => ({ ...a, fyc: fmt(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape), ipNet: fmt(a.ipNet), caseNet: fmt(a.caseNet), syc: fmt(a.syc) }))
+      .map(a => ({ ...a, fyc: fmt(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape),
+                          ipNet: fmt(a.ipNet), caseNet: fmt(a.caseNet), syc: fmt(a.syc) }))
 
     result.levelDist = Object.entries(
-      d03rows.reduce((acc, r) => { const lv = r[C.AGLEVEL] || 'Other'; acc[lv] = (acc[lv] || 0) + 1; return acc }, {})
+      d03rows.reduce((acc, r) => {
+        const lv = r[C.AGLEVEL] || 'Other'
+        acc[lv] = (acc[lv] || 0) + 1
+        return acc
+      }, {})
     ).map(([name, value]) => ({ name, value }))
 
     result.officeData = [{
@@ -111,17 +144,19 @@ function extractData(wb) {
       netMp: fmtInt(sum(C.NET_MP)), fyc: fmt(sum(C.FYC)),
       apeNet: fmt(sum(C.APE_NET)), caseNet: fmtInt(sum(C.CASE_NET))
     }]
+  }
 
-    // Build monthly data per agent from Tháng 5 (just current month T5)
-    // Map YearMonth (e.g. 202601..202612) to T1..T12
-    const monthLabel = (ym) => {
-      if (!ym) return null
-      const s = String(ym)
-      const m = parseInt(s.slice(4))
-      return `T${m}`
-    }
+  // All Tháng sheets → per-agent monthly history
+  const monthLabel = (ym) => {
+    if (!ym) return null
+    const m = parseInt(String(ym).slice(4))
+    return isNaN(m) ? null : `T${m}`
+  }
 
-    // Group rows by agent code - accumulate per month
+  thangSheets.forEach(wsName => {
+    const parsed = parseMonthSheet(wsName)
+    if (!parsed) return
+    const { C, allRows } = parsed
     allRows.filter(r => r[11] === 'D03').forEach(r => {
       const code = String(r[C.AGCODE] || '').trim()
       if (!code) return
@@ -130,25 +165,24 @@ function extractData(wb) {
       if (!agentMonthly[code]) agentMonthly[code] = {}
       if (!agentMonthly[code][mLabel]) {
         agentMonthly[code][mLabel] = {
-          month: mLabel,
-          hd: 0, ip: 0, fyp: 0, fyc: 0, syc: 0,
+          month: mLabel, hd: 0, ip: 0, fyp: 0, fyc: 0, syc: 0,
           act: false, fycL12m: 0, hdYtd: 0, fycYtd: 0, fypYtd: 0, ipYtd: 0
         }
       }
       const m = agentMonthly[code][mLabel]
-      m.hd += parseFloat(r[C.IP_NET]) || 0  // IP Net = hợp đồng
-      m.ip += parseFloat(r[C.APE_SUB]) || 0  // APE Sub
-      m.fyp += parseFloat(r[C.FYP]) || 0
-      m.fyc += parseFloat(r[C.FYC]) || 0
-      m.syc += parseFloat(r[C.SYC]) || 0
+      m.hd   += parseFloat(r[C.IP_NET])  || 0
+      m.ip   += parseFloat(r[C.APE_SUB]) || 0
+      m.fyp  += parseFloat(r[C.FYP])     || 0
+      m.fyc  += parseFloat(r[C.FYC])     || 0
+      m.syc  += parseFloat(r[C.SYC])     || 0
       if (parseFloat(r[C.ACT_FYC]) > 0) m.act = true
       m.fycL12m = parseFloat(r[C.FYC_L12M]) || m.fycL12m
-      m.hdYtd = parseFloat(r[C.IP_YTD]) || m.hdYtd
-      m.fycYtd = parseFloat(r[C.FYC_YTD]) || m.fycYtd
-      m.fypYtd = parseFloat(r[C.FYP_YTD]) || m.fypYtd
-      m.ipYtd = parseFloat(r[C.APE_YTD]) || m.ipYtd
+      m.hdYtd   = parseFloat(r[C.IP_YTD])   || m.hdYtd
+      m.fycYtd  = parseFloat(r[C.FYC_YTD])  || m.fycYtd
+      m.fypYtd  = parseFloat(r[C.FYP_YTD])  || m.fypYtd
+      m.ipYtd   = parseFloat(r[C.APE_YTD])  || m.ipYtd
     })
-  }
+  })
 
   // ===== GA data → GA tab =====
   if (wb.SheetNames.includes('GA data')) {

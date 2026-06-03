@@ -49,6 +49,19 @@ export default function DashboardTab({ data }) {
   return (
     <div className="page-content">
       {/* 8 KPI cards */}
+      {/* Month badge */}
+      {k.dataMonth && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+          <div style={{
+            background:'linear-gradient(135deg,#4361ee,#7209b7)',
+            color:'white', padding:'4px 14px', borderRadius:20,
+            fontSize:12, fontWeight:700, display:'inline-flex', alignItems:'center', gap:6
+          }}>
+            📅 Dữ liệu Tháng {k.dataMonth}/2026
+          </div>
+          <div style={{ fontSize:11, color:'#8896aa' }}>— KPI tổng quan theo tháng mới nhất trong file</div>
+        </div>
+      )}
       <div className="kpi-grid" style={{ marginBottom: 16 }}>
         {kpis.map((kpi, i) => <KpiCard key={i} {...kpi} />)}
       </div>
