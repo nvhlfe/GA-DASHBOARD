@@ -60,6 +60,90 @@ function ActCheck({ val }) {
   return <span style={{ color: '#e0e0e0', fontSize: 18 }}>○</span>
 }
 
+
+// Helper: sort month labels T1..T12
+function sortMonths(monthly) {
+  return [...monthly].sort((a, b) => {
+    const na = parseInt(a.month.replace('T',''))
+    const nb = parseInt(b.month.replace('T',''))
+    return na - nb
+  })
+}
+
+function MonthlyTable({ monthly }) {
+  const sorted = sortMonths(monthly)
+
+  return (
+    <div style={{ marginBottom:12 }}>
+      {sorted.map((m, i) => (
+        <div key={i} style={{
+          marginBottom: 8,
+          border: '1px solid #e8ecf4',
+          borderRadius: 10,
+          overflow: 'hidden',
+        }}>
+          {/* Month header */}
+          <div style={{
+            background: m.act
+              ? 'linear-gradient(90deg,#e6faf2,#f0fff8)'
+              : 'linear-gradient(90deg,#f8f9ff,#f0f4ff)',
+            padding: '6px 12px',
+            display: 'flex', alignItems: 'center', gap: 10,
+            borderBottom: '1px solid #e8ecf4',
+          }}>
+            <div style={{
+              background: m.act ? '#06d6a0' : '#8896aa',
+              color: 'white', borderRadius: 20,
+              padding: '2px 10px', fontSize: 11, fontWeight: 800,
+            }}>
+              {m.month}
+            </div>
+            {m.act
+              ? <span style={{ fontSize:11, color:'#065f46', fontWeight:600 }}>✓ Hoạt động</span>
+              : <span style={{ fontSize:11, color:'#8896aa' }}>— Không hoạt động</span>
+            }
+            {m.fycYtd != null && (
+              <span style={{ marginLeft:'auto', fontSize:11, color:'#8896aa' }}>
+                FYC LK: <strong style={{ color:'#4361ee' }}>{formatNum(m.fycYtd)}</strong>
+                &nbsp;·&nbsp;FYP LK: <strong style={{ color:'#06d6a0' }}>{formatNum(m.fypYtd)}</strong>
+              </span>
+            )}
+          </div>
+
+          {/* Data row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: 0,
+            background: 'white',
+          }}>
+            {[
+              { label:'HĐ tháng',  value:formatNum(m.hd),  color:'#1a1f36' },
+              { label:'FYP tháng', value:formatNum(m.fyp), color:'#06d6a0' },
+              { label:'FYC tháng', value:formatNum(m.fyc), color:'#4361ee' },
+              { label:'FYC L12M',  value:formatNum(m.fycL12m), color:'#7209b7' },
+              { label:'IP lũy kế', value:formatNum(m.ipYtd),   color:'#fb8500' },
+            ].map((item, j) => (
+              <div key={j} style={{
+                padding: '8px 10px',
+                borderRight: j < 4 ? '1px solid #f0f4ff' : 'none',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize:9.5, color:'#8896aa', fontWeight:600, marginBottom:3 }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize:14, fontWeight:800, color:item.color }}>
+                  {item.value || '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function TVVModal({ tvv, onClose }) {
   if (!tvv) return null
   const monthly = tvv.monthly || []
@@ -82,44 +166,9 @@ export default function TVVModal({ tvv, onClose }) {
           {/* === A. KẾT QUẢ KINH DOANH === */}
           <div className="section-divider">📊 A. KẾT QUẢ KINH DOANH 2026</div>
           {monthly.length > 0 ? (
-            <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-              <table className="data-table" style={{ fontSize: 11 }}>
-                <thead>
-                  <tr>
-                    <th>Tháng</th>
-                    <th>HĐ (tháng)</th>
-                    <th>IP (tháng)</th>
-                    <th>FYP (tháng)</th>
-                    <th>FYC (tháng)</th>
-                    <th>ACT</th>
-                    <th>FYC L12M</th>
-                    <th>HĐ (lũy kế)</th>
-                    <th>FYC (lũy kế)</th>
-                    <th>FYP (lũy kế)</th>
-                    <th>IP (lũy kế)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthly.map((m, i) => (
-                    <tr key={i}>
-                      <td style={{ fontWeight: 600 }}>{m.month}</td>
-                      <td>{formatNum(m.hd)}</td>
-                      <td>{formatNum(m.ip)}</td>
-                      <td style={{ color: '#06d6a0', fontWeight: 600 }}>{formatNum(m.fyp)}</td>
-                      <td style={{ color: '#4361ee', fontWeight: 600 }}>{formatNum(m.fyc)}</td>
-                      <td>{m.act ? <span style={{ color: '#06d6a0', fontWeight: 700 }}>✓</span> : <span style={{ color: '#ddd' }}>—</span>}</td>
-                      <td style={{ color: '#7209b7' }}>{formatNum(m.fycL12m)}</td>
-                      <td>{formatNum(m.hdYtd)}</td>
-                      <td style={{ color: '#4361ee' }}>{formatNum(m.fycYtd)}</td>
-                      <td style={{ color: '#06d6a0' }}>{formatNum(m.fypYtd)}</td>
-                      <td>{formatNum(m.ipYtd)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <MonthlyTable monthly={monthly} />
           ) : (
-            <div style={{ padding: '12px', color: '#8896aa', fontSize: 12, background: '#f8f9ff', borderRadius: 8, marginBottom: 12 }}>
+            <div style={{ padding:'12px', color:'#8896aa', fontSize:12, background:'#f8f9ff', borderRadius:8, marginBottom:12 }}>
               Chưa có dữ liệu tháng. Upload file Excel để xem chi tiết.
             </div>
           )}

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { formatNum } from '../utils/parseExcel'
 
@@ -18,61 +18,96 @@ const KpiCard = ({ label, value, unit, badge, icon, colorClass = 'c1' }) => (
   </div>
 )
 
-export default function DashboardTab({ data }) {
-  const k = data?.kpis || {}
-  const top = data?.topAgents || []
-  const offData = data?.officeData || []
-
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload?.length) {
-      return (
-        <div style={{ background: 'white', padding: '8px 12px', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.1)', fontSize: 12 }}>
-          <strong>{payload[0]?.payload?.name}</strong>: {formatNum(payload[0]?.value)}
-        </div>
-      )
-    }
-    return null
+const CustomTooltip = ({ active, payload }) => {
+  if (active && payload?.length) {
+    return (
+      <div style={{ background:'white', padding:'8px 12px', borderRadius:8,
+        boxShadow:'0 4px 16px rgba(0,0,0,0.1)', fontSize:12 }}>
+        <strong>{payload[0]?.payload?.name}</strong>: {formatNum(payload[0]?.value)}
+      </div>
+    )
   }
+  return null
+}
 
-  // Only 8 KPI cards as requested
+export default function DashboardTab({ data }) {
+  const availableMonths = data?.availableMonths || []
+  const monthlyKpis     = data?.monthlyKpis     || {}
+  const latestMonth     = availableMonths[availableMonths.length - 1]
+
+  const [selectedMonth, setSelectedMonth] = useState(null)
+
+  // Active month: user selection OR latest
+  const activeMonth = selectedMonth ?? latestMonth
+  const k = (activeMonth && monthlyKpis[activeMonth]) ? monthlyKpis[activeMonth] : (data?.kpis || {})
+  const top     = k.topAgents    || data?.topAgents    || []
+  const offData = k.officeData   || data?.officeData   || []
+
+  const VN_MONTHS = {1:'T1',2:'T2',3:'T3',4:'T4',5:'T5',6:'T6',7:'T7',8:'T8',9:'T9',10:'T10',11:'T11',12:'T12'}
+
   const kpis = [
-    { label: 'NET MANPOWER', value: formatNum(k.netManpower), unit: 'đại lý tuyển mới', badge: { type: 'up', text: '9 (14,3%)' }, icon: '👥', colorClass: 'c1' },
-    { label: 'FYP THÁNG', value: formatNum(k.fypThang), unit: 'triệu VND', badge: { type: 'up', text: '21%' }, icon: '📋', colorClass: 'c2' },
-    { label: 'APE NET', value: formatNum(k.apeNet), unit: 'triệu VND', badge: { type: 'up', text: '16,2%' }, icon: '💰', colorClass: 'c3' },
-    { label: 'CASE NET', value: formatNum(k.caseNet), unit: 'case', badge: { type: 'up', text: '25%' }, icon: '✅', colorClass: 'c4' },
-    { label: 'ACTIVE (FYC)', value: formatNum(k.activeFyc), unit: 'đại lý active', icon: '⚡', colorClass: 'c5' },
-    { label: 'ACTIVE (CASE)', value: formatNum(k.activeCase ?? 11), unit: 'đại lý active', icon: '🔥', colorClass: 'c6' },
-    { label: 'FYC YTD', value: formatNum(k.fycYtd), unit: 'lũy kế năm', icon: '📈', colorClass: 'c7' },
-    { label: 'FYP YTD', value: formatNum(k.fypYtd), unit: 'lũy kế năm', icon: '📊', colorClass: 'c8' },
+    { label:'NET MANPOWER', value:formatNum(k.netManpower), unit:'đại lý tuyển mới', icon:'👥', colorClass:'c1' },
+    { label:'FYP THÁNG',    value:formatNum(k.fypThang),   unit:'triệu VND',         icon:'📋', colorClass:'c2' },
+    { label:'APE NET',      value:formatNum(k.apeNet),     unit:'triệu VND',         icon:'💰', colorClass:'c3' },
+    { label:'CASE NET',     value:formatNum(k.caseNet),    unit:'case',              icon:'✅', colorClass:'c4' },
+    { label:'ACTIVE (FYC)', value:formatNum(k.activeFyc),  unit:'đại lý active',     icon:'⚡', colorClass:'c5' },
+    { label:'ACTIVE (CASE)',value:formatNum(k.activeCase), unit:'đại lý active',     icon:'🔥', colorClass:'c6' },
+    { label:'FYC YTD',      value:formatNum(k.fycYtd),     unit:'lũy kế năm',        icon:'📈', colorClass:'c7' },
+    { label:'FYP YTD',      value:formatNum(k.fypYtd),     unit:'lũy kế năm',        icon:'📊', colorClass:'c8' },
   ]
 
   return (
     <div className="page-content">
-      {/* 8 KPI cards */}
-      {/* Month badge */}
-      {k.dataMonth && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-          <div style={{
-            background:'linear-gradient(135deg,#4361ee,#7209b7)',
-            color:'white', padding:'4px 14px', borderRadius:20,
-            fontSize:12, fontWeight:700, display:'inline-flex', alignItems:'center', gap:6
-          }}>
-            📅 Dữ liệu Tháng {k.dataMonth}/2026
-          </div>
-          <div style={{ fontSize:11, color:'#8896aa' }}>— KPI tổng quan theo tháng mới nhất trong file</div>
+
+      {/* ── Month selector ── */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, flexWrap:'wrap' }}>
+        <div style={{ fontSize:12, fontWeight:600, color:'#4a5568' }}>📅 Chọn tháng:</div>
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+          {availableMonths.length > 0 ? availableMonths.map(m => (
+            <button key={m}
+              onClick={() => setSelectedMonth(m)}
+              style={{
+                padding:'5px 14px', borderRadius:20, border:'none', cursor:'pointer',
+                fontSize:12, fontWeight:700, transition:'all .15s',
+                background: activeMonth === m
+                  ? 'linear-gradient(135deg,#4361ee,#7209b7)'
+                  : '#f0f4ff',
+                color: activeMonth === m ? 'white' : '#4361ee',
+                boxShadow: activeMonth === m ? '0 3px 10px rgba(67,97,238,.3)' : 'none',
+              }}>
+              {VN_MONTHS[m]}/2026
+              {m === latestMonth && <span style={{ marginLeft:4, fontSize:9, opacity:.8 }}>●</span>}
+            </button>
+          )) : (
+            <span style={{ fontSize:11, color:'#8896aa' }}>Upload file Excel để xem dữ liệu</span>
+          )}
         </div>
-      )}
-      <div className="kpi-grid" style={{ marginBottom: 16 }}>
+        {activeMonth && (
+          <div style={{
+            marginLeft:'auto', background:'#e6faf2', color:'#065f46',
+            padding:'4px 12px', borderRadius:8, fontSize:11, fontWeight:600,
+          }}>
+            ✓ Đang xem Tháng {activeMonth}/2026
+          </div>
+        )}
+      </div>
+
+      {/* ── 8 KPI cards ── */}
+      <div className="kpi-grid" style={{ marginBottom:16 }}>
         {kpis.map((kpi, i) => <KpiCard key={i} {...kpi} />)}
       </div>
 
-      {/* MAIN CONTENT ROW */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
-        {/* TOP AGENTS */}
+      {/* ── Charts + Top agents ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr 1fr', gap:16, marginBottom:16 }}>
+
+        {/* Top agents */}
         <div className="card">
           <div className="section-header">
             <div className="section-icon">🏆</div>
             TOP ĐẠI LÝ THEO FYP
+            {activeMonth && <span style={{ marginLeft:'auto', fontSize:10, color:'#8896aa', fontWeight:500 }}>
+              T{activeMonth}/2026
+            </span>}
           </div>
           <table className="data-table">
             <thead>
@@ -80,7 +115,7 @@ export default function DashboardTab({ data }) {
                 <th>#</th>
                 <th>Tên đại lý</th>
                 <th>Mã</th>
-                <th>Cấp bậc</th>
+                <th>Cấp</th>
                 <th>FYP</th>
                 <th>FYC</th>
                 <th>IP NET</th>
@@ -90,73 +125,71 @@ export default function DashboardTab({ data }) {
               {top.map((ag, i) => (
                 <tr key={i}>
                   <td>
-                    <div className={`rank-num ${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other'}`}>
-                      {i + 1}
-                    </div>
+                    <div className={`rank-num ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other'}`}>{i+1}</div>
                   </td>
-                  <td style={{ color: '#4361ee', fontWeight: 600, fontSize: 11.5 }}>{ag.name}</td>
-                  <td style={{ color: '#8896aa', fontSize: 11 }}>{ag.code}</td>
+                  <td style={{ color:'#4361ee', fontWeight:600, fontSize:11.5 }}>{ag.name}</td>
+                  <td style={{ color:'#8896aa', fontSize:11 }}>{ag.code}</td>
                   <td><span className={`level-badge level-${ag.level}`}>{ag.level}</span></td>
                   <td className="val-fyp">{formatNum(ag.fyp)}</td>
                   <td className="val-fyc">{formatNum(ag.fyc)}</td>
-                  <td style={{color:"#fb8500",fontWeight:600}}>{formatNum(ag.ipNet)}</td>
+                  <td style={{ color:'#fb8500', fontWeight:600 }}>{formatNum(ag.ipNet)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div style={{ marginTop: 10, fontSize: 11.5, color: '#8896aa' }}>
+          <div style={{ marginTop:10, fontSize:11.5, color:'#8896aa' }}>
             Top 11 theo FYP · {top.length} đại lý
           </div>
         </div>
 
-        {/* FYC THEO VĂN PHÒNG */}
+        {/* FYC chart */}
         <div className="card">
           <div className="section-header">
             <div className="section-icon">📊</div>
             FYC THEO VĂN PHÒNG
           </div>
-          <div style={{ fontSize: 11, color: '#8896aa', marginBottom: 6 }}>Triệu VND</div>
-          <div style={{ height: 170 }}>
+          <div style={{ fontSize:11, color:'#8896aa', marginBottom:6 }}>Triệu VND</div>
+          <div style={{ height:170 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={offData.length > 0 ? offData.map(o => ({ name: 'Quận 3', value: o.fyc })) : [{ name: 'Quận 3', value: k.fycThang }]}>
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
+              <BarChart data={offData.length>0 ? offData.map(o=>({name:'Quận 3',value:o.fyc})) : [{name:'Quận 3',value:k.fycThang}]}>
+                <XAxis dataKey="name" tick={{ fontSize:11 }} />
+                <YAxis tick={{ fontSize:11 }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" fill="#fb8500" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="value" fill="#fb8500" radius={[6,6,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 22, color: '#fb8500', marginTop: 4 }}>
+          <div style={{ textAlign:'center', fontWeight:800, fontSize:22, color:'#fb8500', marginTop:4 }}>
             {formatNum(k.fycThang)}
           </div>
-          <div style={{ textAlign: 'center', fontSize: 11, color: '#8896aa' }}>triệu VND</div>
+          <div style={{ textAlign:'center', fontSize:11, color:'#8896aa' }}>triệu VND</div>
         </div>
 
-        {/* APE NET THEO VĂN PHÒNG */}
+        {/* APE chart */}
         <div className="card">
           <div className="section-header">
             <div className="section-icon">💰</div>
             APE NET THEO VĂN PHÒNG
           </div>
-          <div style={{ fontSize: 11, color: '#8896aa', marginBottom: 6 }}>Triệu VND</div>
-          <div style={{ height: 170 }}>
+          <div style={{ fontSize:11, color:'#8896aa', marginBottom:6 }}>Triệu VND</div>
+          <div style={{ height:170 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[{ name: 'Quận 3', value: k.apeNet }]}>
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
+              <BarChart data={[{ name:'Quận 3', value:k.apeNet }]}>
+                <XAxis dataKey="name" tick={{ fontSize:11 }} />
+                <YAxis tick={{ fontSize:11 }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" fill="#4361ee" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="value" fill="#4361ee" radius={[6,6,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 22, color: '#4361ee', marginTop: 4 }}>
+          <div style={{ textAlign:'center', fontWeight:800, fontSize:22, color:'#4361ee', marginTop:4 }}>
             {formatNum(k.apeNet)}
           </div>
-          <div style={{ textAlign: 'center', fontSize: 11, color: '#8896aa' }}>triệu VND</div>
+          <div style={{ textAlign:'center', fontSize:11, color:'#8896aa' }}>triệu VND</div>
         </div>
       </div>
 
-      {/* BOTTOM: NET MANPOWER & FYC TABLE */}
+      {/* ── Bottom table ── */}
       <div className="card">
         <div className="section-header">
           <div className="section-icon">📋</div>
@@ -173,16 +206,19 @@ export default function DashboardTab({ data }) {
             </tr>
           </thead>
           <tbody>
-            {(offData.length > 0 ? offData : [{ vanPhong: 'GA710 - Quận 3', netMp: k.netManpower, fyc: k.fycThang, apeNet: k.apeNet, caseNet: k.caseNet }]).map((o, i) => (
+            {(offData.length>0
+              ? offData
+              : [{ vanPhong:'GA710 - Quận 3', netMp:k.netManpower, fyc:k.fycThang, apeNet:k.apeNet, caseNet:k.caseNet }]
+            ).map((o, i) => (
               <tr key={i}>
-                <td style={{ fontWeight: 600 }}>{o.vanPhong}</td>
+                <td style={{ fontWeight:600 }}>{o.vanPhong}</td>
                 <td className="val-green">{formatNum(o.netMp)}</td>
                 <td className="val-fyc">{formatNum(o.fyc)}</td>
                 <td className="val-ape">{formatNum(o.apeNet)}</td>
                 <td className="val-green">{formatNum(o.caseNet)}</td>
               </tr>
             ))}
-            <tr style={{ background: '#f8f9ff', fontWeight: 700 }}>
+            <tr style={{ background:'#f8f9ff', fontWeight:700 }}>
               <td>Tổng cộng</td>
               <td className="val-green">{formatNum(k.netManpower)}</td>
               <td className="val-fyc">{formatNum(k.fycThang)}</td>

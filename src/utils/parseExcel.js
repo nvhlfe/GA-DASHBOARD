@@ -146,6 +146,63 @@ function extractData(wb) {
     }]
   }
 
+  // Build per-month KPI snapshots for all Tháng sheets
+  const monthlyKpis = {}
+  thangSheets.forEach(wsName => {
+    const parsed = parseMonthSheet(wsName)
+    if (!parsed) return
+    const { C, d03rows, mNum } = parsed
+    const sum2 = (ci) => d03rows.reduce((acc, r) => acc + (parseFloat(r[ci]) || 0), 0)
+
+    // Build agent map for this month's top agents
+    const agMap = {}
+    d03rows.forEach(r => {
+      const code = String(r[C.AGCODE] || '').trim()
+      if (!code) return
+      if (!agMap[code]) agMap[code] = {
+        code, name: r[C.AGNAME], level: r[C.AGLEVEL], branch: r[C.BRANCH],
+        fyc: 0, fyp: 0, ape: 0, ipNet: 0, caseNet: 0, syc: 0
+      }
+      agMap[code].fyc    += parseFloat(r[C.FYC])     || 0
+      agMap[code].fyp    += parseFloat(r[C.FYP])     || 0
+      agMap[code].ipNet  += parseFloat(r[C.IP_NET])  || 0
+      agMap[code].ape    += parseFloat(r[C.APE_NET]) || 0
+      agMap[code].caseNet+= parseFloat(r[C.CASE_NET])|| 0
+      agMap[code].syc    += parseFloat(r[C.SYC])     || 0
+    })
+
+    monthlyKpis[mNum] = {
+      dataMonth: mNum,
+      netManpower: fmtInt(sum2(C.NET_MP)),
+      fycThang:    fmt(sum2(C.FYC)),
+      fypThang:    fmt(sum2(C.FYP)),
+      apeNet:      fmt(sum2(C.APE_NET)),
+      ipNet:       fmtInt(sum2(C.IP_NET)),
+      caseNet:     fmtInt(sum2(C.CASE_NET)),
+      fycYtd:      fmt(sum2(C.FYC_YTD)),
+      ipNetYtd:    fmt(sum2(C.IP_YTD)),
+      apeNetYtd:   fmt(sum2(C.APE_YTD)),
+      fypYtd:      fmt(sum2(C.FYP_YTD)),
+      syc:         fmt(sum2(C.SYC)),
+      ryc:         fmt(sum2(C.RYC)),
+      tongDaiLy:   d03rows.length,
+      activeFyc:   fmtInt(sum2(C.ACT_FYC)),
+      activeCase:  fmtInt(sum2(C.ACT_CASE)),
+      mdrt:        d03rows.filter(r => r[C.MDRT] && r[C.MDRT] !== 'Not MDRT').length,
+      topAgents:   Object.values(agMap)
+        .sort((a, b) => b.fyp - a.fyp).slice(0, 11)
+        .map(a => ({ ...a, fyc: fmt(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape),
+                            ipNet: fmt(a.ipNet), caseNet: fmt(a.caseNet), syc: fmt(a.syc) })),
+      officeData: [{
+        vanPhong: 'GA710 - Quận 3',
+        netMp: fmtInt(sum2(C.NET_MP)), fyc: fmt(sum2(C.FYC)),
+        apeNet: fmt(sum2(C.APE_NET)), caseNet: fmtInt(sum2(C.CASE_NET))
+      }],
+    }
+  })
+  result.monthlyKpis = monthlyKpis
+  result.availableMonths = Object.keys(monthlyKpis).map(Number).sort((a,b)=>a-b)
+
   // All Tháng sheets → per-agent monthly history
   const monthLabel = (ym) => {
     if (!ym) return null
