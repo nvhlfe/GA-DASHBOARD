@@ -45,12 +45,14 @@ function extractData(wb) {
     const ws = wb.Sheets[wsName]
     if (!ws) return null
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
-    // Tháng 5 có extra row 0 (số thứ tự cột), Tháng 6+ header ở row 0
-    // Detect: if row[0][0] là số (1,2,3...) → header ở row[1], data từ row[2]
-    //         nếu row[0][0] là string 'YearMonth' → header ở row[0], data từ row[1]
+    // Detect header row by finding which row contains 'YearMonth'
+    // Tháng 5: row 0 rỗng, header ở row 1, data từ row 2
+    // Tháng 6+: header ở row 0, data từ row 1
     let headerRow, dataStart
-    if (raw[0] && String(raw[0][0]).match(/^\d+$/)) {
-      headerRow = raw[1] || []; dataStart = 2
+    const headerRowIdx = raw.findIndex(row => Array.isArray(row) && row.includes('YearMonth'))
+    if (headerRowIdx >= 0) {
+      headerRow = raw[headerRowIdx] || []
+      dataStart = headerRowIdx + 1
     } else {
       headerRow = raw[0] || []; dataStart = 1
     }
