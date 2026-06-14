@@ -248,14 +248,65 @@ function extractData(wb) {
     const ws = wb.Sheets['GA data']
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+    // Row mapping (0-indexed):
+    // Row 3:  PLANNING FYP  (col 4-15 = Jan-Dec, col 16 = TOTAL)
+    // Row 4:  FYP achieved
+    // Row 5:  REC
+    // Row 6:  ACT
+    // Row 7:  ACT RATIO
+    // Row 8:  CASE/ACT
+    // Row 9:  APE/ACT
+    // Row 10: CASE SIZE
+    // Row 11: PC
+    // Row 12: PE
+    // Row 13: MP
+    // Row 14: TLDTPTT
+
+    const getRow = (ri) => raw[ri] || []
+    const mData = (ri) => months.map((m, i) => {
+      const val = (getRow(ri))[4 + i]
+      return { month: m, value: fmt(val) }
+    })
+
+    // TLDTPTT: raw value is like 83.8 (already %) — no need to *100
+    const tldtRaw = months.map((m, i) => {
+      const v = parseFloat((getRow(14))[4 + i])
+      return { month: m, value: isNaN(v) ? null : Math.round(v * 10) / 10 }
+    })
+
     result.gaData = {
-      fyp2026: months.map((m, i) => ({ month: m, achieved: fmt((raw[4]||[])[4+i]), plan: fmt((raw[3]||[])[4+i]) })),
-      act2026: months.map((m, i) => ({ month: m, value: fmt((raw[6]||[])[4+i]) })),
-      mp2026: months.map((m, i) => ({ month: m, value: fmt((raw[13]||[])[4+i]) })),
-      tldtptt: months.map((m, i) => ({ month: m, value: fmt((raw[14]||[])[4+i]) })),
-      totalFypYtd: fmt((raw[4]||[])[16]),
-      totalFypPlan: fmt((raw[3]||[])[16]),
-      totalAct: fmt((raw[6]||[])[16]),
+      // Planning
+      planFyp:   mData(3),
+      // Achieved rows
+      fyp2026:   months.map((m, i) => ({
+        month: m,
+        achieved: fmt((getRow(4))[4+i]),
+        plan:     fmt((getRow(3))[4+i]),
+      })),
+      rec:       mData(5),
+      act2026:   mData(6),
+      actRatio:  mData(7),
+      caseAct:   mData(8),
+      apeAct:    mData(9),
+      caseSize:  mData(10),
+      pc:        mData(11),
+      pe:        mData(12),
+      mp2026:    mData(13),
+      tldtptt:   tldtRaw,
+      // Totals
+      totalFypPlan:    fmt((getRow(3))[16]),
+      totalFypYtd:     fmt((getRow(4))[16]),
+      totalRec:        fmt((getRow(5))[16]),
+      totalAct:        fmt((getRow(6))[16]),
+      totalActRatio:   fmt((getRow(7))[16]),
+      totalCaseAct:    fmt((getRow(8))[16]),
+      totalApeAct:     fmt((getRow(9))[16]),
+      totalCaseSize:   fmt((getRow(10))[16]),
+      totalPc:         fmt((getRow(11))[16]),
+      totalPe:         fmt((getRow(12))[16]),
+      totalMp:         fmt((getRow(13))[16]),
+      totalTldtptt:    fmt((getRow(14))[16]),
     }
   }
 
