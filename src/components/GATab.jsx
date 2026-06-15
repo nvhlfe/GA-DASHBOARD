@@ -50,7 +50,7 @@ const ROWS = [
   { key: 'fyp2026',  label: 'FYP',          color: '#b91c1c',  bg: '#fff7f7', achieved: true },
   { key: 'rec',      label: 'REC',           color: '#1a1f36',  bg: '#fafafa' },
   { key: 'act2026',  label: 'ACT',           color: '#1a1f36',  bg: '#f8f9ff' },
-  { key: 'actRatio', label: 'ACT RATIO',     color: '#7209b7',  bg: '#fdf4ff', isRatio: true },
+  { key: 'actRatio', label: 'ACT RATIO',     color: '#7209b7',  bg: '#fdf4ff', isPct: true },
   { key: 'caseAct',  label: 'CASE/ACT',      color: '#0369a1',  bg: '#f0f9ff' },
   { key: 'apeAct',   label: 'APE/ACT',       color: '#0369a1',  bg: '#f0f9ff' },
   { key: 'caseSize', label: 'CASE SIZE',      color: '#0369a1',  bg: '#f0f9ff' },

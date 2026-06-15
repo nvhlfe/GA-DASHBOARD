@@ -31,8 +31,7 @@ function fmtPct(val) {
   if (val === null || val === undefined) return '—'
   const n = parseFloat(val)
   if (isNaN(n)) return '—'
-  const pct = n > 1 ? n * 100 : n * 100
-  return pct.toFixed(1) + '%'
+  return n.toFixed(2) + '%'  // already converted in parseExcel
 }
 
 function CheckMark({ val }) {

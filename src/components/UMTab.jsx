@@ -25,7 +25,7 @@ function fmtPct(val) {
   if (val === null || val === undefined) return '—'
   const n = parseFloat(val)
   if (isNaN(n)) return '—'
-  return (n * 100).toFixed(1) + '%'
+  return n.toFixed(2) + '%'  // already converted to % in parseExcel
 }
 
 export default function UMTab({ data }) {
@@ -115,16 +115,17 @@ export default function UMTab({ data }) {
                   <td style={{ fontSize: 11 }}>{um.bm}/{um.unit}</td>
                   <td><PCBadge val={um.pcHienTai} /></td>
                   <td className="val-fyc">{formatNum(um.fycPhongTT)}</td>
-                  <td style={{ color: '#7209b7', fontWeight: 600 }}>{fmtPct(um.tldtptt)}</td>
+                  <td style={{ color: '#7209b7', fontWeight: 600 }}>{um.tldtptt != null ? um.tldtptt.toFixed(2)+'%' : '—'}</td>
                   <td><PCBadge val={um.pcTamDat} /></td>
-                  <td><PCBadge val={um.pcDuKien} /></td>
+                  <td style={{ color:'#06d6a0', fontWeight:700 }}>{formatNum(um.tongTvvAct)}</td>
+                  <td style={{ color:'#ef476f', fontWeight:700 }}>{formatNum(um.luotActCanThem)}</td>
                   <td className="val-red">{formatNum(um.fycCanThem)}</td>
                   <td className="val-green">{formatNum(um.tienThuong)}</td>
                   <td><MocBadge val={um.moc_tamDat} /></td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={12} style={{ textAlign: 'center', padding: 24, color: '#8896aa' }}>Không tìm thấy</td></tr>
+                <tr><td colSpan={13} style={{ textAlign: 'center', padding: 24, color: '#8896aa' }}>Không tìm thấy</td></tr>
               )}
             </tbody>
           </table>

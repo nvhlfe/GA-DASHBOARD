@@ -104,14 +104,14 @@ export default function TVVTab({ data }) {
                 <th>Mã ĐL</th>
                 <th>BM/Unit</th>
                 <th>PE Hiện tại</th>
-                <th>PE Dự kiến</th>
+                <th>PE Tạm đạt</th>
                 <th>FYC L12M</th>
                 <th>Act T1</th>
                 <th>Act T2</th>
                 <th>Act T3</th>
                 <th>TLDTPTT</th>
                 <th>FYC Quý</th>
-                <th>Thưởng TT</th>
+                <th>Mức HT (%)</th>
                 <th>FYC Cần thêm</th>
                 <th>Vé Star Club</th>
               </tr>
@@ -124,14 +124,14 @@ export default function TVVTab({ data }) {
                   <td style={{ fontSize: 11, color: '#8896aa' }}>{ag.msddl}</td>
                   <td style={{ fontSize: 11 }}>{ag.ban}/{ag.unit}</td>
                   <td><PEBadge val={ag.peHienTai} /></td>
-                  <td><PEBadge val={ag.peDuKien} /></td>
+                  <td><PEBadge val={ag.ketQuaTamTinh} /></td>
                   <td className="val-fyc">{formatNum(ag.fyc12m)}</td>
                   <td><ActMark val={ag.act1} /></td>
                   <td><ActMark val={ag.act2} /></td>
                   <td><ActMark val={ag.act3} /></td>
-                  <td style={{ fontSize: 11, color: '#7209b7', fontWeight: 600 }}>{fmtPct(ag.tldtptt)}</td>
+                  <td style={{ fontSize: 11, color: '#7209b7', fontWeight: 600 }}>{ag.tldtptt != null ? ag.tldtptt.toFixed(2)+'%' : '—'}</td>
                   <td className="val-fyc">{formatNum(ag.fyc)}</td>
-                  <td className="val-green">{formatNum(ag.thuongTamTinh)}</td>
+                  <td style={{color:"#fb8500",fontWeight:600}}>{ag.mucHoTro != null ? ag.mucHoTro.toFixed(1)+'%' : '—'}</td>
                   <td className="val-red">{formatNum(ag.fycCanThem)}</td>
                   <td style={{ fontSize: 11, color: '#fb8500', fontWeight: 600 }}>{ag.sc_ve || '—'}</td>
                 </tr>

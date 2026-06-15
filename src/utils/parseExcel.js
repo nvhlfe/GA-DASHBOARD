@@ -269,7 +269,12 @@ function extractData(wb) {
       return { month: m, value: fmt(val) }
     })
 
-    // TLDTPTT: raw value is like 83.8 (already %) — no need to *100
+    // ACT RATIO: raw 0-1 → *100 for %
+    const actRatioRaw = months.map((m, i) => {
+      const v = parseFloat((getRow(7))[4 + i])
+      return { month: m, value: isNaN(v) ? null : Math.round(v * 1000) / 10 }
+    })
+    // TLDTPTT: raw already % (83.8)
     const tldtRaw = months.map((m, i) => {
       const v = parseFloat((getRow(14))[4 + i])
       return { month: m, value: isNaN(v) ? null : Math.round(v * 10) / 10 }
@@ -286,7 +291,7 @@ function extractData(wb) {
       })),
       rec:       mData(5),
       act2026:   mData(6),
-      actRatio:  mData(7),
+      actRatio:  actRatioRaw,
       caseAct:   mData(8),
       apeAct:    mData(9),
       caseSize:  mData(10),
@@ -326,13 +331,16 @@ function extractData(wb) {
       pcTamDat: r[15], pcDuKien: r[16],
       fycCanThem: fmt(r[18]), tvvMoiCl: fmt(r[19]),
       tongFyc: fmt(r[21]), tongTvvAct: fmt(r[22]),
-      mucHoTro: r[24], mucChiTra: r[25],
+      tldtpttQuy: r[23] != null ? Math.round(parseFloat(r[23]) * 10000) / 100 : null, // raw 0-1 → %
+      mucHoTro: r[24] != null ? Math.round(parseFloat(r[24]) * 1000) / 10 : null,
+      mucChiTra: r[25] != null ? Math.round(parseFloat(r[25]) * 1000) / 10 : null,
       tienThuong: fmt(r[26]), fycTangMucThuong: fmt(r[27]),
       luotActCanThem: fmt(r[28]), thuongTangThem: fmt(r[30]),
       // UM MOC columns
       moc_fyc6thang: fmt(r[32]), moc_luotTvvAct: fmt(r[33]),
       moc_tvvMoiCl: fmt(r[34]), moc_tongLuot: fmt(r[35]),
-      moc_tldtptt: fmt(r[36]), moc_tamDat: r[37],
+      moc_tldtptt: r[36] != null ? Math.round(parseFloat(r[36]) * 10000) / 100 : null,
+      moc_tamDat: r[37],
       moc_fycCanThem: fmt(r[38]), moc_luotCanThem: fmt(r[39]),
       moc_tldtCanThem: r[40],
       // Star Club nhóm
@@ -432,7 +440,7 @@ function extractData(wb) {
         fyc12m: fmt(r[COL.FYC_12M]),
         act1: r[COL.ACT1], act2: r[COL.ACT2], act3: r[COL.ACT3],
         tongHd3m: fmt(r[COL.TONGHD3M]),
-        tldtptt: fmt(r[COL.TLDTPTT]),
+        tldtptt: r[COL.TLDTPTT] != null ? Math.round(parseFloat(r[COL.TLDTPTT]) * 10000) / 100 : null,
         ketQuaTamTinh: r[COL.KQ_TAMTINH],
         peDuKien: r[COL.PE_DUKIEN],
         pe_nangTldtptt: r[COL.NANG_TLDTPTT],
@@ -442,9 +450,9 @@ function extractData(wb) {
         // B. THƯỞNG QUÝ
         fyc: fmt(r[COL.FYC_QUY]),
         syc: fmt(r[COL.SYC_QUY]),
-        quy_tldtptt: fmt(r[COL.TLDTPTT_QUY]),
-        mucHoTro: r[COL.MUC_HO_TRO],
-        mucChiTra: r[COL.MUC_CHI_TRA],
+        quy_tldtptt: r[COL.TLDTPTT_QUY] != null ? Math.round(parseFloat(r[COL.TLDTPTT_QUY]) * 10000) / 100 : null,
+        mucHoTro: r[COL.MUC_HO_TRO] != null ? Math.round(parseFloat(r[COL.MUC_HO_TRO]) * 1000) / 10 : null,
+        mucChiTra: r[COL.MUC_CHI_TRA] != null ? Math.round(parseFloat(r[COL.MUC_CHI_TRA]) * 1000) / 10 : null,
         thuongTamTinh: fmt(r[COL.THUONG_TAMTINH]),
         fycCanThem: fmt(r[COL.FYC_TANG_MUC]),
         quy_thuongTangThem: fmt(r[COL.THUONG_TANGTHER]),

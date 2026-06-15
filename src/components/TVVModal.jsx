@@ -7,12 +7,12 @@ function fmtDate(val) {
   return String(val).split('T')[0]
 }
 
-// TLDTPTT is stored as 0-1 ratio (1.0 = 100%)
+// TLDTPTT already converted to % in parseExcel (e.g. 87.10)
 function fmtPct(val) {
   if (val === null || val === undefined) return '—'
   const n = parseFloat(val)
   if (isNaN(n)) return '—'
-  return (n * 100).toFixed(2) + '%'
+  return n.toFixed(2) + '%'
 }
 
 // Large IP values (VND)
