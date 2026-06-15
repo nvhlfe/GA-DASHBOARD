@@ -99,9 +99,10 @@ export default function UMTab({ data }) {
                 <th>PC Hiện tại</th>
                 <th>FYC Phòng TT</th>
                 <th>TLDTPTT</th>
-                <th>PC Tạm đạt</th>
-                <th>PC Dự kiến</th>
-                <th>FYC Cần thêm</th>
+                 <th>PC Tạm đạt</th>
+                 <th>Tổng TVV HĐ</th>
+                 <th>Lượt ACT cần</th>
+                 <th>FYC Cần thêm</th>
                 <th>Tiền thưởng</th>
                 <th>Duy trì (MOC)</th>
               </tr>
@@ -115,7 +116,7 @@ export default function UMTab({ data }) {
                   <td style={{ fontSize: 11 }}>{um.bm}/{um.unit}</td>
                   <td><PCBadge val={um.pcHienTai} /></td>
                   <td className="val-fyc">{formatNum(um.fycPhongTT)}</td>
-                  <td style={{ color: '#7209b7', fontWeight: 600 }}>{um.tldtptt != null ? um.tldtptt.toFixed(2)+'%' : '—'}</td>
+                  <td style={{ color: '#7209b7', fontWeight: 600 }}>{um.tldtptt != null && !isNaN(parseFloat(um.tldtptt)) ? parseFloat(um.tldtptt).toFixed(1)+'%' : '—'}</td>
                   <td><PCBadge val={um.pcTamDat} /></td>
                   <td style={{ color:'#06d6a0', fontWeight:700 }}>{formatNum(um.tongTvvAct)}</td>
                   <td style={{ color:'#ef476f', fontWeight:700 }}>{formatNum(um.luotActCanThem)}</td>
@@ -125,7 +126,7 @@ export default function UMTab({ data }) {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={13} style={{ textAlign: 'center', padding: 24, color: '#8896aa' }}>Không tìm thấy</td></tr>
+                <tr><td colSpan={11} style={{ textAlign: 'center', padding: 24, color: '#8896aa' }}>Không tìm thấy</td></tr>
               )}
             </tbody>
           </table>

@@ -131,7 +131,7 @@ export default function TVVTab({ data }) {
                   <td><ActMark val={ag.act3} /></td>
                   <td style={{ fontSize: 11, color: '#7209b7', fontWeight: 600 }}>{ag.tldtptt != null ? ag.tldtptt.toFixed(2)+'%' : '—'}</td>
                   <td className="val-fyc">{formatNum(ag.fyc)}</td>
-                  <td style={{color:"#fb8500",fontWeight:600}}>{ag.mucHoTro != null ? ag.mucHoTro.toFixed(1)+'%' : '—'}</td>
+                  <td style={{color:"#fb8500",fontWeight:600}}>{ag.mucHoTro != null && !isNaN(parseFloat(ag.mucHoTro)) ? parseFloat(ag.mucHoTro).toFixed(1)+'%' : '—'}</td>
                   <td className="val-red">{formatNum(ag.fycCanThem)}</td>
                   <td style={{ fontSize: 11, color: '#fb8500', fontWeight: 600 }}>{ag.sc_ve || '—'}</td>
                 </tr>

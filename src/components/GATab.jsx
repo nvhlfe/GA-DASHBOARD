@@ -99,7 +99,7 @@ export default function GATab({ data }) {
   function formatCell(rowKey, val) {
     if (val === null || val === undefined) return <span style={{ color: '#ccc' }}>—</span>
     const row = ROWS.find(r => r.key === rowKey)
-    if (row?.isPct) return fmtPct(val)
+    if (row?.isPct) return val != null ? parseFloat(val).toFixed(1) + '%' : '—'
     if (row?.isRatio) return fmtVal(val, true)
     return fmtVal(val)
   }
