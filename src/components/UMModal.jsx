@@ -29,9 +29,9 @@ function fmtDate(val) {
 
 function fmtPct(val) {
   if (val === null || val === undefined) return '—'
-  const n = parseFloat(val)
+  const n = Number(val)
   if (isNaN(n)) return '—'
-  return n.toFixed(1) + '%'  // already *100 in parseExcel
+  return n.toFixed(1) + '%'
 }
 
 function CheckMark({ val }) {

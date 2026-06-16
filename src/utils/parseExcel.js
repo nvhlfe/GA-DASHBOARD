@@ -327,7 +327,7 @@ function extractData(wb) {
       phone: String(r[8] || ''),
       pcHienTai: r[9], fycPhongTT: fmt(r[10]),
       tvvmcl: fmt(r[11]), tvvmclGen1_50pct: fmt(r[12]),
-      tongTvvmclGen1: fmt(r[13]), tldtptt: fmt(r[14]),
+      tongTvvmclGen1: fmt(r[13]), tldtptt: r[14] != null && !isNaN(parseFloat(r[14])) ? Math.round(parseFloat(r[14]) * 1000) / 10 : null,
       pcTamDat: r[15], pcDuKien: r[16],
       fycCanThem: fmt(r[18]), tvvMoiCl: fmt(r[19]),
       tongFyc: fmt(r[21]), tongTvvAct: fmt(r[22]),
@@ -473,11 +473,11 @@ function extractData(wb) {
 
         // D. STAR CLUB
         sc_slhd: fmt(r[COL.SC_SLHD]),
-        sc_tldtpttPromo: fmt(r[COL.SC_TLDTPTT]),
+        sc_tldtpttPromo: r[COL.SC_TLDTPTT] != null && !isNaN(parseFloat(r[COL.SC_TLDTPTT])) ? Math.round(parseFloat(r[COL.SC_TLDTPTT]) * 1000) / 10 : null,
         sc_tamDatPromo: r[COL.SC_TAMDAT],
         sc_hs: fmt(r[COL.SC_HS]),
-        sc_tldtptt: fmt(r[COL.SC_TLDTPTT2]),
-        sc_tldthd: fmt(r[COL.SC_TLDTHD]),
+        sc_tldtptt: r[COL.SC_TLDTPTT2] != null && !isNaN(parseFloat(r[COL.SC_TLDTPTT2])) ? Math.round(parseFloat(r[COL.SC_TLDTPTT2]) * 1000) / 10 : null,
+        sc_tldthd: r[COL.SC_TLDTHD] != null && !isNaN(parseFloat(r[COL.SC_TLDTHD])) ? Math.round(parseFloat(r[COL.SC_TLDTHD]) * 1000) / 10 : null,
         sc_tongIp: r[COL.SC_TONG_IP],
         sc_tamThoa: r[COL.SC_TAM_THOA],
         sc_soVe: fmt(r[COL.SC_SO_VE]),
