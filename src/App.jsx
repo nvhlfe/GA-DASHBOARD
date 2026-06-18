@@ -219,7 +219,11 @@ class ErrorBoundary extends React.Component {
 }
 
 function Toast({ message, type, onClose }) {
-  useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t) }, [onClose])
+  useEffect(() => {
+    const duration = type === 'error' ? 8000 : 4000
+    const t = setTimeout(onClose, duration)
+    return () => clearTimeout(t)
+  }, [onClose, type])
   return <div className={`toast ${type}`}>{type === 'success' ? '✅' : '❌'} {message}</div>
 }
 
@@ -307,6 +311,15 @@ export default function App() {
       const parsed = await parseExcelFile(file)
       setData(parsed)
 
+      // Warn if parser detected unexpected sheet structure (possible column drift)
+      if (parsed._warnings?.length > 0) {
+        console.warn('Cấu trúc Excel có thể bị lệch:', parsed._warnings)
+        setToast({
+          message: `⚠️ Phát hiện ${parsed._warnings.length} cảnh báo cấu trúc — kiểm tra console (F12) để xem chi tiết. Dữ liệu vẫn được tải nhưng có thể không chính xác.`,
+          type: 'error',
+        })
+      }
+
       if (dbRef.current) {
         setSyncing(true)
         await set(ref(dbRef.current, FB_PATH), {
@@ -315,8 +328,10 @@ export default function App() {
           updatedAt: new Date().toISOString(),
         })
         setSyncing(false)
-        setToast({ message: `✓ Đã tải & đồng bộ realtime cho tất cả users`, type: 'success' })
-      } else {
+        if (!parsed._warnings?.length) {
+          setToast({ message: `✓ Đã tải & đồng bộ realtime cho tất cả users`, type: 'success' })
+        }
+      } else if (!parsed._warnings?.length) {
         setToast({ message: `✓ Đã tải "${file.name}" (chỉ local — chưa kết nối Firebase)`, type: 'success' })
       }
     } catch (err) {
@@ -456,7 +471,7 @@ export default function App() {
           </div>
         ) : (
           <ErrorBoundary key={activeTab}>
-            {activeTab === 'dashboard' && <DashboardTab data={data} />}
+            {activeTab === 'dashboard' && <DashboardTab data={data} onNavigate={setActiveTab} />}
             {activeTab === 'ga'        && <GATab        data={data} />}
             {activeTab === 'um'        && <UMTab        data={data} />}
             {activeTab === 'tvv'       && <TVVTab       data={data} />}

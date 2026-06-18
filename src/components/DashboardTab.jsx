@@ -1,6 +1,9 @@
 import React, { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { formatNum } from '../utils/parseExcel'
+import RiskAlerts from './RiskAlerts'
+import TargetProgress from './TargetProgress'
+import TrendChart from './TrendChart'
 
 const KpiCard = ({ label, value, unit, badge, icon, colorClass = 'c1' }) => (
   <div className={`kpi-card ${colorClass}`}>
@@ -30,34 +33,56 @@ const CustomTooltip = ({ active, payload }) => {
   return null
 }
 
-export default function DashboardTab({ data }) {
+const VN_MONTHS = {1:'T1',2:'T2',3:'T3',4:'T4',5:'T5',6:'T6',7:'T7',8:'T8',9:'T9',10:'T10',11:'T11',12:'T12'}
+
+// Calculate real MoM (month-over-month) change for a given metric
+function calcMoM(monthlyKpis, availableMonths, activeMonth, key) {
+  if (!availableMonths || availableMonths.length < 2) return null
+  const idx = availableMonths.indexOf(activeMonth)
+  if (idx <= 0) return null // no previous month available
+  const prevMonth = availableMonths[idx - 1]
+  const curVal = monthlyKpis[activeMonth]?.[key]
+  const prevVal = monthlyKpis[prevMonth]?.[key]
+  if (curVal == null || prevVal == null || prevVal === 0) return null
+  const pct = ((curVal - prevVal) / Math.abs(prevVal)) * 100
+  return { pct, prevMonth, prevVal, curVal }
+}
+
+function momBadge(mom) {
+  if (!mom) return null
+  const type = mom.pct > 0.5 ? 'up' : mom.pct < -0.5 ? 'down' : 'flat'
+  const text = `${Math.abs(mom.pct).toFixed(1)}% so T${mom.prevMonth}`
+  return { type, text }
+}
+
+export default function DashboardTab({ data, onNavigate }) {
   const availableMonths = data?.availableMonths || []
   const monthlyKpis     = data?.monthlyKpis     || {}
   const latestMonth     = availableMonths[availableMonths.length - 1]
 
   const [selectedMonth, setSelectedMonth] = useState(null)
 
-  // Active month: user selection OR latest
   const activeMonth = selectedMonth ?? latestMonth
   const k = (activeMonth && monthlyKpis[activeMonth]) ? monthlyKpis[activeMonth] : (data?.kpis || {})
   const top     = k.topAgents    || data?.topAgents    || []
   const offData = k.officeData   || data?.officeData   || []
 
-  const VN_MONTHS = {1:'T1',2:'T2',3:'T3',4:'T4',5:'T5',6:'T6',7:'T7',8:'T8',9:'T9',10:'T10',11:'T11',12:'T12'}
-
   const kpis = [
-    { label:'NET MANPOWER', value:formatNum(k.netManpower), unit:'đại lý tuyển mới', icon:'👥', colorClass:'c1' },
-    { label:'FYP THÁNG',    value:formatNum(k.fypThang),   unit:'triệu VND',         icon:'📋', colorClass:'c2' },
-    { label:'APE NET',      value:formatNum(k.apeNet),     unit:'triệu VND',         icon:'💰', colorClass:'c3' },
-    { label:'CASE NET',     value:formatNum(k.caseNet),    unit:'case',              icon:'✅', colorClass:'c4' },
-    { label:'ACTIVE (FYC)', value:formatNum(k.activeFyc),  unit:'đại lý active',     icon:'⚡', colorClass:'c5' },
-    { label:'ACTIVE (CASE)',value:formatNum(k.activeCase), unit:'đại lý active',     icon:'🔥', colorClass:'c6' },
-    { label:'FYC YTD',      value:formatNum(k.fycYtd),     unit:'lũy kế năm',        icon:'📈', colorClass:'c7' },
-    { label:'FYP YTD',      value:formatNum(k.fypYtd),     unit:'lũy kế năm',        icon:'📊', colorClass:'c8' },
-  ]
+    { key:'netManpower', label:'NET MANPOWER', value:formatNum(k.netManpower), unit:'đại lý tuyển mới', icon:'👥', colorClass:'c1' },
+    { key:'fypThang',    label:'FYP THÁNG',    value:formatNum(k.fypThang),   unit:'triệu VND',         icon:'📋', colorClass:'c2' },
+    { key:'apeNet',      label:'APE NET',      value:formatNum(k.apeNet),     unit:'triệu VND',         icon:'💰', colorClass:'c3' },
+    { key:'caseNet',     label:'CASE NET',     value:formatNum(k.caseNet),    unit:'case',              icon:'✅', colorClass:'c4' },
+    { key:'activeFyc',   label:'ACTIVE (FYC)', value:formatNum(k.activeFyc),  unit:'đại lý active',     icon:'⚡', colorClass:'c5' },
+    { key:'activeCase',  label:'ACTIVE (CASE)',value:formatNum(k.activeCase), unit:'đại lý active',     icon:'🔥', colorClass:'c6' },
+    { key:'fycYtd',      label:'FYC YTD',      value:formatNum(k.fycYtd),     unit:'lũy kế năm',        icon:'📈', colorClass:'c7' },
+    { key:'fypYtd',      label:'FYP YTD',      value:formatNum(k.fypYtd),     unit:'lũy kế năm',        icon:'📊', colorClass:'c8' },
+  ].map(kpi => ({ ...kpi, badge: momBadge(calcMoM(monthlyKpis, availableMonths, activeMonth, kpi.key)) }))
 
   return (
     <div className="page-content">
+
+      {/* ── Risk Alerts ── */}
+      <RiskAlerts data={data} onNavigate={onNavigate} />
 
       {/* ── Month selector ── */}
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, flexWrap:'wrap' }}>
@@ -92,9 +117,17 @@ export default function DashboardTab({ data }) {
         )}
       </div>
 
-      {/* ── 8 KPI cards ── */}
+      {/* ── 8 KPI cards (with real MoM badges) ── */}
       <div className="kpi-grid" style={{ marginBottom:16 }}>
         {kpis.map((kpi, i) => <KpiCard key={i} {...kpi} />)}
+      </div>
+
+      {/* ── Target progress ── */}
+      <TargetProgress gaData={data?.gaData} availableMonths={availableMonths} />
+
+      {/* ── Trend chart (multi-month) ── */}
+      <div style={{ marginBottom:16 }}>
+        <TrendChart monthlyKpis={monthlyKpis} availableMonths={availableMonths} />
       </div>
 
       {/* ── Charts + Top agents ── */}

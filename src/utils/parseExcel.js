@@ -319,6 +319,25 @@ function extractData(wb) {
   if (wb.SheetNames.includes('UM-OFF')) {
     const ws = wb.Sheets['UM-OFF']
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
+
+    // Validate structure: header row 2 should contain expected key labels
+    // at their expected positions. If not, warn (data may be misaligned).
+    const expectedHeaders = {
+      9: 'PC', 10: 'FYC', 14: 'TLDTPTT', 22: 'TVV', 28: 'ACT',
+    }
+    const headerRow = (raw[2] || []).map(h => String(h || '').toUpperCase())
+    const warnings = []
+    Object.entries(expectedHeaders).forEach(([colIdx, keyword]) => {
+      const cell = headerRow[colIdx] || ''
+      if (!cell.includes(keyword)) {
+        warnings.push(`UM-OFF cột ${colIdx}: kỳ vọng chứa "${keyword}" nhưng thấy "${cell || '(rỗng)'}"`)
+      }
+    })
+    if (warnings.length > 0) {
+      result._warnings = result._warnings || []
+      result._warnings.push(...warnings)
+    }
+
     const rows = raw.slice(3).filter(r => r[0] !== null && r[0] !== undefined && r[0] !== '' && !isNaN(parseFloat(r[0])))
     result.umList = rows.map(r => ({
       stt: fmtInt(r[0]), off: r[1], bm: r[2], unit: r[3],
@@ -407,6 +426,22 @@ function extractData(wb) {
   if (wb.SheetNames.includes('AG-PE')) {
     const ws = wb.Sheets['AG-PE']
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1 })
+
+    // Validate structure: header row 4 should contain expected keywords
+    const headerRow4 = (raw[4] || []).map(h => String(h || '').toUpperCase())
+    const expectedAgPe = { 10: 'PE', 16: 'TLDTPTT', 23: 'FYC', 45: 'SLHĐ' }
+    const agPeWarnings = []
+    Object.entries(expectedAgPe).forEach(([colIdx, keyword]) => {
+      const cell = headerRow4[colIdx] || ''
+      if (!cell.includes(keyword)) {
+        agPeWarnings.push(`AG-PE cột ${colIdx}: kỳ vọng chứa "${keyword}" nhưng thấy "${cell || '(rỗng)'}"`)
+      }
+    })
+    if (agPeWarnings.length > 0) {
+      result._warnings = result._warnings || []
+      result._warnings.push(...agPeWarnings)
+    }
+
     // data rows start at row index 5 (0-based)
     const rows = raw.slice(5).filter(r => r[COL.NO] !== null && r[COL.NO] !== undefined && !isNaN(parseFloat(r[COL.NO])))
 
