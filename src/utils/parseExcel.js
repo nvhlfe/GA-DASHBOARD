@@ -313,6 +313,150 @@ function extractData(wb) {
       totalMp:         fmt((getRow(13))[16]),
       totalTldtptt:    fmt((getRow(14))[16]),
     }
+
+    // ===== Operational YoY: pre-calculated 2025/2026 table (cols 18-21, rows 2-9) =====
+    // Manpower, # ACT, ACT Ratio, Case/ACT, Case Size, APE/Month, APE/Year
+    const yoyLabelRow = (ri) => String((getRow(ri))[18] || '').trim()
+    const opsYoY = {}
+    for (let ri = 3; ri <= 9; ri++) {
+      const label = yoyLabelRow(ri)
+      if (!label) continue
+      const v2025 = parseFloat((getRow(ri))[19])
+      const v2026 = parseFloat((getRow(ri))[20])
+      const growth = parseFloat((getRow(ri))[21])
+      opsYoY[label] = {
+        v2025: isNaN(v2025) ? null : v2025,
+        v2026: isNaN(v2026) ? null : v2026,
+        growthPct: isNaN(growth) ? null : Math.round((growth - 1) * 1000) / 10, // 1.116 → +11.6%
+      }
+    }
+    result.gaData.opsYoY = {
+      manpower: opsYoY['MANPOWER'],
+      actCount: opsYoY['# ACT'],
+      actRatio: opsYoY['ACT RATIO'],
+      caseAct:  opsYoY['CASE/ACT'],
+      caseSize: opsYoY['CASE SIZE'],
+      apeMonth: opsYoY['APE/Month'],
+      apeYear:  opsYoY['APE/Year'],
+    }
+
+    // ===== YoY FYP comparison: 2024 (row19) / 2025 (row20) / 2026 (row23) =====
+    // Row 23 (2026) only has a value for months that have actually run —
+    // we detect "real" months by checking against availableMonths-style logic:
+    // a month is valid if it's a positive number AND not absurdly large
+    // (catches the same kind of stray-cell bug seen in ACT RATIO col 9).
+    const fypByYearRow = { 2024: 19, 2025: 20, 2026: 23 }
+    const fypByYear = {}
+    Object.entries(fypByYearRow).forEach(([year, ri]) => {
+      const row = getRow(parseInt(ri))
+      fypByYear[year] = months.map((m, i) => {
+        const v = parseFloat(row[4 + i])
+        if (isNaN(v) || v < 0 || v > 5000) return null
+        return Math.round(v * 10) / 10
+      })
+    })
+
+    // Outlier guard for the running year (2026): a month's FYP that is
+    // wildly smaller than the median of other valid months in the same
+    // year is almost certainly a misplaced cell (seen before with ACT
+    // RATIO bleeding into an adjacent column). We don't hard-delete it —
+    // we just exclude it from YTD/quarter math so 1 bad cell can't skew
+    // a growth-rate the manager will act on.
+    function median(arr) {
+      const s = [...arr].sort((a,b) => a-b)
+      const mid = Math.floor(s.length / 2)
+      return s.length % 2 ? s[mid] : (s[mid-1] + s[mid]) / 2
+    }
+    {
+      const valid2026 = fypByYear['2026'].filter(v => v != null)
+      if (valid2026.length >= 3) {
+        const med = median(valid2026)
+        fypByYear['2026'] = fypByYear['2026'].map(v => {
+          if (v == null) return null
+          // Flag as outlier if value is <15% of the median of its peers
+          // (a real low month would rarely be this extreme relative to others)
+          if (med > 0 && v < med * 0.15) return null
+          return v
+        })
+      }
+    }
+
+    // Quarter aggregation helper
+    const QUARTERS = { Q1: [0,1,2], Q2: [3,4,5], Q3: [6,7,8], Q4: [9,10,11] }
+    function sumQuarter(monthArr, qIdxs) {
+      const vals = qIdxs.map(i => monthArr[i]).filter(v => v != null)
+      if (vals.length === 0) return null
+      return Math.round(vals.reduce((a,b) => a+b, 0) * 10) / 10
+    }
+
+    const fypQuarters = {}
+    Object.entries(QUARTERS).forEach(([q, idxs]) => {
+      fypQuarters[q] = {
+        2024: sumQuarter(fypByYear['2024'], idxs),
+        2025: sumQuarter(fypByYear['2025'], idxs),
+        2026: sumQuarter(fypByYear['2026'], idxs),
+      }
+    })
+
+    // YTD comparison: sum only months that have run in 2026 (non-null),
+    // then compare same month-range in 2025/2024 for an apples-to-apples view
+    const monthsRunIdx = fypByYear['2026']
+      .map((v, i) => v != null ? i : null)
+      .filter(i => i !== null)
+    function sumYtd(monthArr, idxs) {
+      const vals = idxs.map(i => monthArr[i]).filter(v => v != null)
+      if (vals.length === 0) return null
+      return Math.round(vals.reduce((a,b)=>a+b,0) * 10) / 10
+    }
+    const fypYtdByYear = {
+      2024: sumYtd(fypByYear['2024'], monthsRunIdx),
+      2025: sumYtd(fypByYear['2025'], monthsRunIdx),
+      2026: sumYtd(fypByYear['2026'], monthsRunIdx),
+    }
+
+    function growthPct(cur, prev) {
+      if (cur == null || prev == null || prev === 0) return null
+      return Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10
+    }
+
+    result.gaData.fypYoY = {
+      byMonth: months.map((m, i) => ({
+        month: m,
+        y2024: fypByYear['2024'][i],
+        y2025: fypByYear['2025'][i],
+        y2026: fypByYear['2026'][i],
+        growthYoY: growthPct(fypByYear['2026'][i], fypByYear['2025'][i]),
+      })),
+      byQuarter: Object.entries(fypQuarters).map(([q, v]) => ({
+        quarter: q,
+        y2024: v['2024'], y2025: v['2025'], y2026: v['2026'],
+        growthYoY: growthPct(v['2026'], v['2025']),
+      })),
+      ytd: {
+        ...fypYtdByYear,
+        monthsCovered: monthsRunIdx.map(i => months[i]),
+        growthYoY: growthPct(fypYtdByYear[2026], fypYtdByYear[2025]),
+        growthVs2024: growthPct(fypYtdByYear[2026], fypYtdByYear[2024]),
+      },
+    }
+
+    // APE YTD: sheet only has APE/Year totals for 2025 (no monthly breakdown),
+    // so 2025 YTD is estimated by prorating the annual figure across the same
+    // number of months covered by 2026's actual data. 2026 uses the real
+    // APE Net YTD already computed from the Tháng N sheets (result.kpis).
+    const apeYear2025 = result.gaData.opsYoY?.apeYear?.v2025 ?? null
+    const monthsCovered = monthsRunIdx.length || 1
+    const apeYtd2025Estimate = apeYear2025 != null
+      ? Math.round(apeYear2025 / 12 * monthsCovered * 10) / 10
+      : null
+    const apeYtd2026 = result.kpis?.apeNetYtd ?? null
+    result.gaData.apeYoY = {
+      ytd2025Estimate: apeYtd2025Estimate,
+      ytd2026: apeYtd2026,
+      monthsCovered: monthsRunIdx.map(i => months[i]),
+      growthYoY: growthPct(apeYtd2026, apeYtd2025Estimate),
+      isEstimate: true,
+    }
   }
 
   // ===== UM-OFF sheet =====

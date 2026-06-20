@@ -317,6 +317,8 @@
     <button onclick="exportExcel()" class="btn btn-export">⬇ Excel</button>
     <button onclick="addPerson()" class="btn btn-purple">＋ TVV</button>
   </div>
+  <span id="saveIndicator" style="font-size:11px; font-weight:600; white-space:nowrap; min-width:80px;"></span>
+  <button onclick="openAuditLog()" class="btn" style="background:#f3e8ff;color:#6d28d9;">🕘 Lịch sử</button>
   <div id="clockBadge"></div>
 </div>
 
@@ -421,6 +423,22 @@
   </div>
 </div>
 
+<!-- ── AUDIT LOG MODAL ── -->
+<div id="auditModal" class="modal-bg" style="display:none">
+  <div class="modal-box" style="max-width:560px; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div>
+        <div class="modal-title" style="margin-bottom:2px">🕘 Lịch sử thay đổi</div>
+        <div style="font-size:11px;color:#8896aa">20 thay đổi gần nhất của tháng đang xem</div>
+      </div>
+      <button onclick="closeAuditLog()" style="width:28px;height:28px;border-radius:50%;border:none;background:#f0f4ff;cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div id="auditLogList" style="display:flex;flex-direction:column;gap:6px;">
+      <div style="text-align:center;padding:20px;color:#8896aa;font-size:12px">Đang tải...</div>
+    </div>
+  </div>
+</div>
+
 <!-- ── LOGIN MODAL ── -->
 <div id="loginModal" class="modal-bg" style="display:none">
   <div class="modal-box">
@@ -449,7 +467,7 @@
 <!-- ══════════════════════════════════════════════ -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, doc, setDoc, onSnapshot, addDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const firebaseConfig = {
@@ -785,9 +803,60 @@ function calcIssued(p) {
 }
 
 // ── Firebase ops ──
-async function saveCurrentMonth() {
-  await setDoc(doc(db,'reports',String(monthSelect.value)),{data:reportData,updatedAt:new Date().toISOString()});
+let saveTimer = null;
+let isSaving = false;
+
+// Debounced save: batches rapid edits (e.g. typing fee) into 1 write,
+// shrinking the window where 2 admins could overwrite each other.
+function saveCurrentMonth() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    isSaving = true;
+    updateSaveIndicator('saving');
+    try {
+      await setDoc(doc(db,'reports',String(monthSelect.value)),{
+        data: reportData,
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser?.email || 'unknown',
+      });
+      updateSaveIndicator('saved');
+    } catch(e) {
+      console.error('Save error:', e);
+      updateSaveIndicator('error');
+    } finally {
+      isSaving = false;
+    }
+  }, 500);
 }
+
+function updateSaveIndicator(state) {
+  const el = document.getElementById('saveIndicator');
+  if (!el) return;
+  const map = {
+    saving: { text: '⏳ Đang lưu...', color: '#92400e' },
+    saved:  { text: '✓ Đã lưu', color: '#065f46' },
+    error:  { text: '⚠ Lỗi lưu — thử lại', color: '#991b1b' },
+  };
+  const s = map[state];
+  el.textContent = s.text;
+  el.style.color = s.color;
+  if (state === 'saved') setTimeout(() => { if(el.textContent==='✓ Đã lưu') el.textContent=''; }, 2500);
+}
+
+// Audit log: every money-affecting change is recorded separately from
+// the main document, so nothing is silently lost even if reportData
+// gets overwritten by a concurrent edit.
+async function logAudit(action, detail) {
+  try {
+    await addDoc(collection(db, 'audit_log'), {
+      month: String(monthSelect.value),
+      action, detail,
+      user: currentUser?.email || 'unknown',
+      at: serverTimestamp(),
+    });
+  } catch(e) { console.error('Audit log error:', e); }
+}
+
 function loadMonthData() {
   onSnapshot(doc(db,'reports',String(monthSelect.value)), snap => {
     reportData = snap.exists() ? snap.data().data : createDefaultData();
@@ -798,34 +867,71 @@ function createDefaultData() {
   return [{group:'G01',msdl:'100001',name:'Nguyễn Văn A',daily:{}}];
 }
 
+// ── Input validation ──
+function validateFee(val) {
+  const n = Number(val);
+  if (val === '' || val === null) return { ok: true, value: '' };
+  if (isNaN(n)) return { ok: false, msg: 'Phí phải là số' };
+  if (n < 0) return { ok: false, msg: 'Phí không thể âm' };
+  if (n > 500000000) return { ok: false, msg: 'Phí lớn bất thường (>500tr) — kiểm tra lại số 0' };
+  return { ok: true, value: n };
+}
+
 // ── CRUD ──
 function updateField(i,field,val) {
   if(userRole!=='admin'){openLoginModal();return;}
+  const oldVal = reportData[i][field];
   reportData[i][field]=val; saveCurrentMonth();
+  logAudit('update_field', `${field}: "${oldVal}" → "${val}" (dòng ${i+1})`);
 }
 function addPerson() {
   if(userRole!=='admin'){openLoginModal();return;}
   reportData.push({group:'GROUP',msdl:'000000',name:'Nhân sự mới',daily:{}});
   saveCurrentMonth(); renderHeader(); renderTable();
+  logAudit('add_person', `Thêm dòng mới (dòng ${reportData.length})`);
 }
 function deletePerson(i) {
   if(userRole!=='admin'){openLoginModal();return;}
-  if(!confirm('Xóa dòng này?')) return;
+  const person = reportData[i];
+  const totalFee = calcTotal(person);
+  const confirmMsg = totalFee > 0
+    ? `⚠️ "${person.name}" có TỔNG PHÍ ${totalFee.toLocaleString()} VND.\n\nXóa dòng này sẽ mất toàn bộ dữ liệu hồ sơ. Bạn chắc chắn?`
+    : `Xóa dòng "${person.name}"?`;
+  if(!confirm(confirmMsg)) return;
   reportData.splice(i,1); saveCurrentMonth(); renderHeader(); renderTable(); renderSummary(); renderOverview();
+  logAudit('delete_person', `Xóa "${person.name}" (MSDL ${person.msdl}, tổng phí ${totalFee.toLocaleString()})`);
 }
 function updateCaseFee(pi,d,ci,val) {
   if(userRole!=='admin'){openLoginModal();return;}
+  const check = validateFee(val);
+  if (!check.ok) {
+    alert('⚠️ ' + check.msg);
+    renderTable(); // revert visual to last valid state
+    return;
+  }
+  const oldFee = reportData[pi].daily[d].cases[ci].fee;
   reportData[pi].daily[d].cases[ci].fee=val; saveCurrentMonth(); renderHeader(); renderTable();
+  if (String(oldFee) !== String(val)) {
+    logAudit('update_fee', `${reportData[pi].name} ngày ${d}: ${oldFee||0} → ${val||0} VND`);
+  }
 }
 function updateCaseStatus(pi,d,ci,val) {
   if(userRole!=='admin'){openLoginModal();return;}
+  const oldStatus = reportData[pi].daily[d].cases[ci].status;
   reportData[pi].daily[d].cases[ci].status=val; saveCurrentMonth(); renderHeader(); renderTable();
+  if (oldStatus !== val) {
+    logAudit('update_status', `${reportData[pi].name} ngày ${d}: ${oldStatus} → ${val}`);
+  }
 }
 function deleteCase(pi,d,ci) {
   if(userRole!=='admin'){openLoginModal();return;}
+  const item = reportData[pi].daily[d].cases[ci];
+  const fee = Number(item.fee||0);
+  if (fee > 0 && !confirm(`Xóa hồ sơ phí ${fee.toLocaleString()} VND? Hành động này không thể hoàn tác.`)) return;
   reportData[pi].daily[d].cases.splice(ci,1);
   if(!reportData[pi].daily[d].cases.length) delete reportData[pi].daily[d];
   saveCurrentMonth(); renderHeader(); renderTable();
+  logAudit('delete_case', `${reportData[pi].name} ngày ${d}: xóa hồ sơ ${fee.toLocaleString()} VND (${item.status})`);
 }
 
 // ── Modal ──
@@ -840,12 +946,57 @@ function closeCaseModal() { document.getElementById('caseModal').style.display='
 function saveModalCase() {
   const fee=document.getElementById('modalFee').value;
   const status=document.getElementById('modalStatus').value;
+  const check = validateFee(fee);
+  if (!check.ok) { alert('⚠️ ' + check.msg); return; }
   if(!reportData[currentModalPerson].daily[currentModalDay])
     reportData[currentModalPerson].daily[currentModalDay]={cases:[]};
   reportData[currentModalPerson].daily[currentModalDay].cases.push({fee,status});
   saveCurrentMonth(); renderHeader(); renderTable(); renderSummary(); renderOverview();
+  logAudit('add_case', `${reportData[currentModalPerson].name} ngày ${currentModalDay}: thêm hồ sơ ${Number(fee||0).toLocaleString()} VND (${status})`);
   closeCaseModal();
 }
+
+// ── Audit log viewer ──
+async function openAuditLog() {
+  document.getElementById('auditModal').style.display='flex';
+  const listEl = document.getElementById('auditLogList');
+  listEl.innerHTML = '<div style="text-align:center;padding:20px;color:#8896aa;font-size:12px">Đang tải...</div>';
+  try {
+    const { getDocs, query, collection: col, where, orderBy, limit } =
+      await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const q = query(
+      col(db, 'audit_log'),
+      where('month', '==', String(monthSelect.value)),
+      orderBy('at', 'desc'),
+      limit(20)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      listEl.innerHTML = '<div style="text-align:center;padding:20px;color:#8896aa;font-size:12px">Chưa có thay đổi nào được ghi nhận cho tháng này</div>';
+      return;
+    }
+    const ACTION_ICON = {
+      update_field:'✏️', add_person:'➕', delete_person:'🗑️',
+      update_fee:'💰', update_status:'🔄', delete_case:'❌', add_case:'📝',
+    };
+    listEl.innerHTML = snap.docs.map(d => {
+      const v = d.data();
+      const time = v.at?.toDate ? v.at.toDate().toLocaleString('vi-VN') : '—';
+      return `
+        <div style="display:flex;gap:10px;padding:8px 10px;background:#f8f9ff;border-radius:8px;border:1px solid #e8ecf4;">
+          <span style="font-size:15px;flex-shrink:0">${ACTION_ICON[v.action]||'•'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11.5px;color:#1a1f36;font-weight:500">${v.detail||''}</div>
+            <div style="font-size:10px;color:#8896aa;margin-top:2px">${v.user||'—'} · ${time}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    console.error('Audit log load error:', e);
+    listEl.innerHTML = '<div style="text-align:center;padding:20px;color:#dc2626;font-size:12px">Lỗi tải lịch sử. Có thể cần tạo Firestore index cho audit_log (month, at).</div>';
+  }
+}
+function closeAuditLog() { document.getElementById('auditModal').style.display='none'; }
 
 // ── Auth ──
 function openLoginModal()  { document.getElementById('loginModal').style.display='flex'; }
@@ -908,6 +1059,7 @@ Object.assign(window, {
   applySorting,applyDayFilter,
   deleteCase,updateField,updateCaseFee,updateCaseStatus,
   openLoginModal,closeLoginModal,loginDashboard,logoutDashboard,
+  openAuditLog,closeAuditLog,
 });
 
 // ── Boot ──

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { formatNum } from '../utils/parseExcel'
+import YoYComparison from './YoYComparison'
 
 const MetricCard = ({ label, value, unit, color = '#4361ee', icon }) => (
   <div className="card" style={{ textAlign: 'center', padding: '16px 10px' }}>
@@ -138,14 +139,14 @@ export default function GATab({ data }) {
           <p style={{ fontSize:11, color:'#8896aa' }}>Dữ liệu Planning vs Achieved 2026</p>
         </div>
         <div style={{ display:'flex', gap:6 }}>
-          {['table','charts'].map(v => (
+          {['table','charts','yoy'].map(v => (
             <button key={v} onClick={() => setActiveView(v)} style={{
               padding:'5px 14px', borderRadius:8, border:'none', cursor:'pointer',
               fontSize:12, fontWeight:600, transition:'all .15s',
               background: activeView===v ? '#4361ee' : '#f0f4ff',
               color: activeView===v ? 'white' : '#4361ee',
             }}>
-              {v === 'table' ? '📋 Bảng số liệu' : '📊 Biểu đồ'}
+              {v === 'table' ? '📋 Bảng số liệu' : v === 'charts' ? '📊 Biểu đồ' : '📅 So sánh năm'}
             </button>
           ))}
         </div>
@@ -354,6 +355,11 @@ export default function GATab({ data }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── YOY COMPARISON VIEW ── */}
+      {activeView === 'yoy' && (
+        <YoYComparison yoy={ga} />
       )}
     </div>
   )

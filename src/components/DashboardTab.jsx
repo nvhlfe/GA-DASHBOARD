@@ -4,6 +4,7 @@ import { formatNum } from '../utils/parseExcel'
 import RiskAlerts from './RiskAlerts'
 import TargetProgress from './TargetProgress'
 import TrendChart from './TrendChart'
+import YoYComparison from './YoYComparison'
 
 const KpiCard = ({ label, value, unit, badge, icon, colorClass = 'c1' }) => (
   <div className={`kpi-card ${colorClass}`}>
@@ -124,6 +125,9 @@ export default function DashboardTab({ data, onNavigate }) {
 
       {/* ── Target progress ── */}
       <TargetProgress gaData={data?.gaData} availableMonths={availableMonths} />
+
+      {/* ── YoY comparison (2025 vs 2026) ── */}
+      <YoYComparison yoy={data?.gaData} />
 
       {/* ── Trend chart (multi-month) ── */}
       <div style={{ marginBottom:16 }}>
