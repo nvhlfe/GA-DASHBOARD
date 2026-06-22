@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { initializeApp, getApps } from 'firebase/app'
 import { getDatabase, ref, onValue, set } from 'firebase/database'
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 import { parseExcelFile } from './utils/parseExcel'
 import DashboardTab from './components/DashboardTab'
 import GATab from './components/GATab'
@@ -18,6 +19,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "135229272496",
   appId: "1:135229272496:web:4c93a501821e4acc74a675",
 }
+const ADMIN_EMAIL = 'admin@d03.com'
 // ─────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -198,6 +200,70 @@ function FirebaseSetupModal({ onSave, onClose, current }) {
   )
 }
 
+// ── Login Modal ───────────────────────────────────────────────
+function LoginModal({ onClose, onLogin }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async () => {
+    if (!email || !password) { setErr('Vui lòng nhập đầy đủ email và mật khẩu'); return }
+    setLoading(true); setErr('')
+    try {
+      await onLogin(email, password)
+      onClose()
+    } catch (e) {
+      setErr('Sai email hoặc mật khẩu')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 360 }}>
+        <div className="modal-header">
+          <div>
+            <div className="modal-title" style={{ marginBottom: 2 }}>🔐 Đăng nhập Admin</div>
+            <div style={{ fontSize: 12, color: '#8896aa' }}>Cần đăng nhập để cập nhật dữ liệu Excel</div>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <input
+            type="email" placeholder="Email" value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e8ecf4', borderRadius:8,
+              fontSize:13, outline:'none', marginBottom:10, fontFamily:'inherit' }}
+            onFocus={e => e.target.style.borderColor = '#4361ee'}
+            onBlur={e => e.target.style.borderColor = '#e8ecf4'}
+          />
+          <input
+            type="password" placeholder="Mật khẩu" value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #e8ecf4', borderRadius:8,
+              fontSize:13, outline:'none', marginBottom:14, fontFamily:'inherit' }}
+            onFocus={e => e.target.style.borderColor = '#4361ee'}
+            onBlur={e => e.target.style.borderColor = '#e8ecf4'}
+          />
+          {err && (
+            <div style={{ color:'#dc2626', fontSize:11.5, marginBottom:10, textAlign:'center' }}>{err}</div>
+          )}
+          <button onClick={handleSubmit} disabled={loading}
+            style={{ width:'100%', padding:'10px', background: loading ? '#c5cde8' : '#4361ee',
+              color:'white', border:'none', borderRadius:9, fontSize:14, fontWeight:700,
+              cursor: loading ? 'default' : 'pointer' }}>
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Error Boundary ────────────────────────────────────────────
 class ErrorBoundary extends React.Component {
   state = { err: null }
@@ -240,9 +306,13 @@ export default function App() {
   const [showFBSetup, setShowFBSetup] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile,    setIsMobile]    = useState(window.innerWidth <= 768)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [isAdmin,     setIsAdmin]     = useState(false)
+  const [showLogin,   setShowLogin]   = useState(false)
   const fileInputRef = useRef()
   const unsubRef     = useRef(null)
   const dbRef        = useRef(null)
+  const authRef      = useRef(null)
 
   // ── Connect Firebase ──
   const connectFirebase = (config) => {
@@ -254,6 +324,14 @@ export default function App() {
       const database = getDatabase(app)
       dbRef.current = database
       setFbStatus('connecting')
+
+      // Auth: theo dõi đăng nhập admin (chỉ admin@d03.com mới được upload Excel)
+      const auth = getAuth(app)
+      authRef.current = auth
+      onAuthStateChanged(auth, (user) => {
+        setCurrentUser(user)
+        setIsAdmin(!!user && user.email === ADMIN_EMAIL)
+      })
 
       unsubRef.current = onValue(
         ref(database, FB_PATH),
@@ -300,9 +378,32 @@ export default function App() {
     setToast({ message: 'Đang kết nối Firebase...', type: 'success' })
   }
 
+  // ── Auth handlers ──
+  const handleLogin = async (email, password) => {
+    if (!authRef.current) throw new Error('Chưa kết nối Firebase')
+    await signInWithEmailAndPassword(authRef.current, email, password)
+    setToast({ message: '✓ Đăng nhập thành công', type: 'success' })
+  }
+  const handleLogout = async () => {
+    if (!authRef.current) return
+    await signOut(authRef.current)
+    setToast({ message: 'Đã đăng xuất', type: 'success' })
+  }
+
+  // ── Upload button click: chỉ admin mới mở được file picker ──
+  const triggerUpload = () => {
+    if (!isAdmin) { setShowLogin(true); return }
+    fileInputRef.current?.click()
+  }
+
   // ── Handle file upload ──
   const handleFile = async (file) => {
     if (!file) return
+    if (!isAdmin) {
+      setToast({ message: '🔒 Cần đăng nhập admin để cập nhật dữ liệu', type: 'error' })
+      setShowLogin(true)
+      return
+    }
     if (!file.name.match(/\.xlsx?$/i)) {
       setToast({ message: 'Vui lòng chọn file Excel (.xlsx)', type: 'error' }); return
     }
@@ -383,10 +484,24 @@ export default function App() {
               textTransform:'uppercase', padding:'0 12px', marginBottom:8 }}>Hệ thống</div>
           </div>
 
-          <div className="nav-item" onClick={() => fileInputRef.current?.click()}>
+          <div className="nav-item" onClick={triggerUpload}>
             <span style={{ fontSize:15 }}>📤</span>
             <span>Upload Excel</span>
+            {!isAdmin && <span style={{ marginLeft:'auto', fontSize:11 }}>🔒</span>}
           </div>
+
+          {/* Admin login/logout */}
+          {isAdmin ? (
+            <div className="nav-item" onClick={handleLogout}>
+              <span style={{ fontSize:15 }}>👤</span>
+              <span>Đăng xuất ({currentUser?.email})</span>
+            </div>
+          ) : (
+            <div className="nav-item" onClick={() => setShowLogin(true)}>
+              <span style={{ fontSize:15 }}>🔐</span>
+              <span>Đăng nhập Admin</span>
+            </div>
+          )}
 
           {/* Firebase setup button */}
           <div className="nav-item" onClick={() => setShowFBSetup(true)}
@@ -455,11 +570,19 @@ export default function App() {
             <div className="date-badge">
               📅 {new Date().toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })}
             </div>
-            <button className="upload-btn" onClick={() => fileInputRef.current?.click()}>
+            <button
+              className="upload-btn"
+              onClick={triggerUpload}
+              style={!isAdmin ? { background:'#f0f4ff', color:'#4361ee', boxShadow:'none' } : {}}
+              title={isAdmin ? 'Cập nhật Excel' : 'Cần đăng nhập admin'}
+            >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                {isAdmin
+                  ? <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                  : <path d="M19 11H5a2 2 0 00-2 2v6a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4"/>
+                }
               </svg>
-              {syncing ? 'Đang sync...' : 'Cập nhật Excel'}
+              {syncing ? 'Đang sync...' : isAdmin ? 'Cập nhật Excel' : 'Đăng nhập để cập nhật'}
             </button>
           </div>
         </div>
@@ -505,8 +628,8 @@ export default function App() {
             <span>{item.label}</span>
           </button>
         ))}
-        <button className="mob-nav-item" onClick={() => fileInputRef.current?.click()}>
-          <span className="mob-icon">📤</span>
+        <button className="mob-nav-item" onClick={triggerUpload}>
+          <span className="mob-icon">{isAdmin ? '📤' : '🔒'}</span>
           <span>Upload</span>
         </button>
       </nav>
@@ -516,6 +639,10 @@ export default function App() {
           current={(() => { try { return JSON.parse(localStorage.getItem('fb_config') || 'null') } catch { return null } })()}
           onSave={handleFBSave}
           onClose={() => setShowFBSetup(false)} />
+      )}
+
+      {showLogin && (
+        <LoginModal onLogin={handleLogin} onClose={() => setShowLogin(false)} />
       )}
 
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
