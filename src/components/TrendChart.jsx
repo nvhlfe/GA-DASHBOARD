@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine, LabelList } from 'recharts'
 import { formatNum } from '../utils/parseExcel'
 
 const VN_MONTHS = {1:'T1',2:'T2',3:'T3',4:'T4',5:'T5',6:'T6',7:'T7',8:'T8',9:'T9',10:'T10',11:'T11',12:'T12'}
@@ -97,7 +97,17 @@ export default function TrendChart({ monthlyKpis, availableMonths }) {
                 dot={{ r:4, fill:m.color, strokeWidth:0 }}
                 activeDot={{ r:6 }}
                 connectNulls
-              />
+              >
+                <LabelList
+                  dataKey={m.label}
+                  position="top"
+                  offset={8}
+                  fontSize={10}
+                  fontWeight={700}
+                  fill="#1a1f36"
+                  formatter={(v) => v != null ? formatNum(v) : ''}
+                />
+              </Line>
             ))}
           </LineChart>
         </ResponsiveContainer>

@@ -374,6 +374,9 @@
 <!-- OVERVIEW TAB -->
 <!-- ══════════════════════════════════════════════ -->
 <div id="pane-overview" class="tab-pane" style="padding: 0 14px 14px;">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <button onclick="exportOverviewExcel()" class="btn btn-export">⬇ Xuất Excel (Overview)</button>
+  </div>
   <div style="background:#fff;border-radius:12px;border:1px solid #e8ecf4;overflow:auto;box-shadow:0 1px 6px rgba(67,97,238,.07);">
     <table class="data-table">
       <thead id="overviewHead"></thead>
@@ -1049,12 +1052,62 @@ function exportExcel() {
   XLSX.writeFile(wb,'D03_TONG_HOP_2026.xlsx');
 }
 
+// ── Export Overview tab: ma trận ngày × người, đúng số liệu đang hiển thị ──
+function exportOverviewExcel() {
+  const month = parseInt(monthSelect.value);
+  const days = getDaysInMonth(month);
+  const dayList = [];
+  for (let d = 1; d <= days; d++) {
+    if (selectedDay !== 'all' && parseInt(selectedDay) !== d) continue;
+    dayList.push(d);
+  }
+
+  // Header row: STT, Mã nhóm, MSDL, Họ tên, [mỗi ngày], Tổng, Phát hành, CPF, CF
+  const header = ['STT','Mã nhóm','MSDL','Họ tên', ...dayList.map(d=>`Ngày ${d}`), 'Tổng','Phát hành','Có phí chưa PH','Chưa phí'];
+  const rows = [header];
+
+  reportData.forEach((person, i) => {
+    let total=0, issued=0, paid=0, noFee=0;
+    const dayValues = dayList.map(d => {
+      const data = person.daily[d] || { cases: [] };
+      let dayTot = 0;
+      data.cases.forEach(item => {
+        const fee = Number(item.fee||0);
+        dayTot += fee; total += fee;
+        if (item.status==='issued') issued += fee;
+        else if (item.status==='paid') paid += fee;
+        else if (item.status==='none') noFee += fee;
+      });
+      return dayTot || '';
+    });
+    rows.push([
+      i+1, person.group, person.msdl, person.name,
+      ...dayValues,
+      total||'', issued||'', paid||'', noFee||'',
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  // Widen the name column and day columns slightly for readability
+  ws['!cols'] = [
+    {wch:5}, {wch:10}, {wch:10}, {wch:24},
+    ...dayList.map(()=>({wch:9})),
+    {wch:11}, {wch:11}, {wch:13}, {wch:11},
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'OVERVIEW');
+
+  const monthLabel = String(month).padStart(2,'0');
+  const dayTag = selectedDay !== 'all' ? `_Ngay${selectedDay}` : '';
+  XLSX.writeFile(wb, `D03_OVERVIEW_T${monthLabel}_2026${dayTag}.xlsx`);
+}
+
 // ── Escape helper ──
 function esc(s) { return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // ── Expose globals ──
 Object.assign(window, {
-  showTab,exportExcel,addPerson,deletePerson,
+  showTab,exportExcel,exportOverviewExcel,addPerson,deletePerson,
   openCaseModal,closeCaseModal,saveModalCase,
   applySorting,applyDayFilter,
   deleteCase,updateField,updateCaseFee,updateCaseStatus,

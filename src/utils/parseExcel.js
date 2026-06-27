@@ -6,6 +6,13 @@ function fmt(val) {
   if (isNaN(n)) return null
   return Math.round(n * 10) / 10
 }
+// 2-decimal precision variant — used for FYC where 1dp rounding loses meaningful detail
+function fmt2(val) {
+  if (val === null || val === undefined || val === '') return null
+  const n = parseFloat(val)
+  if (isNaN(n)) return null
+  return Math.round(n * 100) / 100
+}
 function fmtInt(val) {
   const n = parseFloat(val)
   if (isNaN(n)) return 0
@@ -129,8 +136,8 @@ function extractData(wb) {
       agentMap[code].syc    += parseFloat(r[C.SYC])    || 0
     })
     result.topAgents = Object.values(agentMap)
-      .sort((a, b) => b.fyp - a.fyp).slice(0, 11)
-      .map(a => ({ ...a, fyc: fmt(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape),
+      .sort((a, b) => b.fyp - a.fyp).slice(0, 20)
+      .map(a => ({ ...a, fyc: fmt2(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape),
                           ipNet: fmt(a.ipNet), caseNet: fmt(a.caseNet), syc: fmt(a.syc) }))
 
     result.levelDist = Object.entries(
@@ -192,8 +199,8 @@ function extractData(wb) {
       activeCase:  fmtInt(sum2(C.ACT_CASE)),
       mdrt:        d03rows.filter(r => r[C.MDRT] && r[C.MDRT] !== 'Not MDRT').length,
       topAgents:   Object.values(agMap)
-        .sort((a, b) => b.fyp - a.fyp).slice(0, 11)
-        .map(a => ({ ...a, fyc: fmt(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape),
+        .sort((a, b) => b.fyp - a.fyp).slice(0, 20)
+        .map(a => ({ ...a, fyc: fmt2(a.fyc), fyp: fmt(a.fyp), ape: fmt(a.ape),
                             ipNet: fmt(a.ipNet), caseNet: fmt(a.caseNet), syc: fmt(a.syc) })),
       officeData: [{
         vanPhong: 'GA710 - Quận 3',
@@ -442,18 +449,24 @@ function extractData(wb) {
 
     // APE YTD: sheet only has APE/Year totals for 2025 (no monthly breakdown),
     // so 2025 YTD is estimated by prorating the annual figure across the same
-    // number of months covered by 2026's actual data. 2026 uses the real
-    // APE Net YTD already computed from the Tháng N sheets (result.kpis).
+    // number of months covered by 2026's actual data.
+    //
+    // IMPORTANT: "months covered" must come from the same source as the 2026
+    // APE figure itself (the Tháng N sheets via result.kpis.dataMonth), NOT
+    // from monthsRunIdx (which counts non-null FYP months in the GA data
+    // sheet). Those two can drift — e.g. GA data's FYP row only filled to T5
+    // while Tháng N sheets already have T6 — which silently mis-prorates the
+    // 2025 estimate and produces a wrong growth %.
     const apeYear2025 = result.gaData.opsYoY?.apeYear?.v2025 ?? null
-    const monthsCovered = monthsRunIdx.length || 1
+    const apeMonthsCovered = result.kpis?.dataMonth || monthsRunIdx.length || 1
     const apeYtd2025Estimate = apeYear2025 != null
-      ? Math.round(apeYear2025 / 12 * monthsCovered * 10) / 10
+      ? Math.round(apeYear2025 / 12 * apeMonthsCovered * 100) / 100
       : null
     const apeYtd2026 = result.kpis?.apeNetYtd ?? null
     result.gaData.apeYoY = {
       ytd2025Estimate: apeYtd2025Estimate,
       ytd2026: apeYtd2026,
-      monthsCovered: monthsRunIdx.map(i => months[i]),
+      monthsCovered: Array.from({ length: apeMonthsCovered }, (_, i) => months[i]),
       growthYoY: growthPct(apeYtd2026, apeYtd2025Estimate),
       isEstimate: true,
     }
@@ -677,6 +690,16 @@ export function formatNum(val) {
   if (isNaN(n)) return '-'
   const rounded = Math.round(n * 10) / 10
   return rounded === Math.round(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)
+}
+
+// 2-decimal display variant — used for FYC, where 1dp rounding hides
+// meaningful precision (e.g. distinguishing 4.96 from 5.00 near a threshold)
+export function formatNum2(val) {
+  if (val === null || val === undefined) return '-'
+  const n = parseFloat(val)
+  if (isNaN(n)) return '-'
+  const rounded = Math.round(n * 100) / 100
+  return rounded === Math.round(rounded) ? rounded.toFixed(0) : rounded.toFixed(2)
 }
 
 export function formatBig(val) {

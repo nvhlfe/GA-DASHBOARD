@@ -1,5 +1,5 @@
 import React from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts'
 import { formatNum } from '../utils/parseExcel'
 
 function GrowthBadge({ pct }) {
@@ -134,8 +134,14 @@ export default function YoYComparison({ yoy }) {
                 <YAxis tick={{ fontSize:11 }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend iconSize={9} formatter={v => <span style={{ fontSize:11.5 }}>{v}</span>} />
-                <Bar dataKey="2025" fill="#c7d2fe" radius={[4,4,0,0]} />
-                <Bar dataKey="2026" fill="#4361ee" radius={[4,4,0,0]} />
+                <Bar dataKey="2025" fill="#c7d2fe" radius={[4,4,0,0]}>
+                  <LabelList dataKey="2025" position="top" fontSize={10} fontWeight={700} fill="#1a1f36"
+                    formatter={(v) => v != null ? formatNum(v) : ''} />
+                </Bar>
+                <Bar dataKey="2026" fill="#4361ee" radius={[4,4,0,0]}>
+                  <LabelList dataKey="2026" position="top" fontSize={10} fontWeight={700} fill="#1a1f36"
+                    formatter={(v) => v != null ? formatNum(v) : ''} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

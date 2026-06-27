@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { formatNum } from '../utils/parseExcel'
+import { formatNum, formatNum2 } from '../utils/parseExcel'
 import RiskAlerts from './RiskAlerts'
 import TargetProgress from './TargetProgress'
 import TrendChart from './TrendChart'
@@ -134,32 +134,33 @@ export default function DashboardTab({ data, onNavigate }) {
         <TrendChart monthlyKpis={monthlyKpis} availableMonths={availableMonths} />
       </div>
 
-      {/* ── Charts + Top agents ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr 1fr', gap:16, marginBottom:16 }}>
-
-        {/* Top agents */}
-        <div className="card">
-          <div className="section-header">
-            <div className="section-icon">🏆</div>
-            TOP ĐẠI LÝ THEO FYP
-            {activeMonth && <span style={{ marginLeft:'auto', fontSize:10, color:'#8896aa', fontWeight:500 }}>
-              T{activeMonth}/2026
-            </span>}
-          </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Tên đại lý</th>
-                <th>Mã</th>
-                <th>Cấp</th>
-                <th>FYP</th>
-                <th>FYC</th>
-                <th>IP NET</th>
-              </tr>
-            </thead>
-            <tbody>
-              {top.map((ag, i) => (
+      {/* ── Top agents (full width, Top 20) ── */}
+      <div className="card" style={{ marginBottom:16 }}>
+        <div className="section-header">
+          <div className="section-icon">🏆</div>
+          TOP 20 ĐẠI LÝ THEO FYP
+          {activeMonth && <span style={{ marginLeft:'auto', fontSize:10, color:'#8896aa', fontWeight:500 }}>
+            T{activeMonth}/2026
+          </span>}
+        </div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tên đại lý</th>
+              <th>Mã</th>
+              <th>Cấp</th>
+              <th>FYP</th>
+              <th>FYC</th>
+              <th>FYC cần thêm</th>
+              <th>IP NET</th>
+            </tr>
+          </thead>
+          <tbody>
+            {top.map((ag, i) => {
+              // FYC cần thêm = 5 - FYC tháng. Nếu FYC ≥ 5, không thiếu nữa → hiện "-"
+              const fycGap = ag.fyc != null ? Math.round((5 - ag.fyc) * 100) / 100 : null
+              return (
                 <tr key={i}>
                   <td>
                     <div className={`rank-num ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other'}`}>{i+1}</div>
@@ -168,61 +169,18 @@ export default function DashboardTab({ data, onNavigate }) {
                   <td style={{ color:'#8896aa', fontSize:11 }}>{ag.code}</td>
                   <td><span className={`level-badge level-${ag.level}`}>{ag.level}</span></td>
                   <td className="val-fyp">{formatNum(ag.fyp)}</td>
-                  <td className="val-fyc">{formatNum(ag.fyc)}</td>
+                  <td className="val-fyc">{formatNum2(ag.fyc)}</td>
+                  <td style={{ color: fycGap != null && fycGap > 0 ? '#ef4444' : '#8896aa', fontWeight: fycGap != null && fycGap > 0 ? 700 : 400 }}>
+                    {fycGap != null && fycGap > 0 ? formatNum2(fycGap) : '-'}
+                  </td>
                   <td style={{ color:'#fb8500', fontWeight:600 }}>{formatNum(ag.ipNet)}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ marginTop:10, fontSize:11.5, color:'#8896aa' }}>
-            Top 11 theo FYP · {top.length} đại lý
-          </div>
-        </div>
-
-        {/* FYC chart */}
-        <div className="card">
-          <div className="section-header">
-            <div className="section-icon">📊</div>
-            FYC THEO VĂN PHÒNG
-          </div>
-          <div style={{ fontSize:11, color:'#8896aa', marginBottom:6 }}>Triệu VND</div>
-          <div style={{ height:170 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={offData.length>0 ? offData.map(o=>({name:'Quận 3',value:o.fyc})) : [{name:'Quận 3',value:k.fycThang}]}>
-                <XAxis dataKey="name" tick={{ fontSize:11 }} />
-                <YAxis tick={{ fontSize:11 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" fill="#fb8500" radius={[6,6,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ textAlign:'center', fontWeight:800, fontSize:22, color:'#fb8500', marginTop:4 }}>
-            {formatNum(k.fycThang)}
-          </div>
-          <div style={{ textAlign:'center', fontSize:11, color:'#8896aa' }}>triệu VND</div>
-        </div>
-
-        {/* APE chart */}
-        <div className="card">
-          <div className="section-header">
-            <div className="section-icon">💰</div>
-            APE NET THEO VĂN PHÒNG
-          </div>
-          <div style={{ fontSize:11, color:'#8896aa', marginBottom:6 }}>Triệu VND</div>
-          <div style={{ height:170 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[{ name:'Quận 3', value:k.apeNet }]}>
-                <XAxis dataKey="name" tick={{ fontSize:11 }} />
-                <YAxis tick={{ fontSize:11 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" fill="#4361ee" radius={[6,6,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ textAlign:'center', fontWeight:800, fontSize:22, color:'#4361ee', marginTop:4 }}>
-            {formatNum(k.apeNet)}
-          </div>
-          <div style={{ textAlign:'center', fontSize:11, color:'#8896aa' }}>triệu VND</div>
+              )
+            })}
+          </tbody>
+        </table>
+        <div style={{ marginTop:10, fontSize:11.5, color:'#8896aa' }}>
+          Top 20 theo FYP · {top.length} đại lý · "FYC cần thêm" = 5 − FYC tháng (đơn vị triệu VND, ngưỡng PE Vàng)
         </div>
       </div>
 

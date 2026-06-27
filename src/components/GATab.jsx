@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts'
 import { formatNum } from '../utils/parseExcel'
 import YoYComparison from './YoYComparison'
 
@@ -306,8 +306,14 @@ export default function GATab({ data }) {
                   <YAxis tick={{ fontSize:11 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend iconSize={8} formatter={v => <span style={{ fontSize:11 }}>{v}</span>} />
-                  <Bar dataKey="Kế hoạch" fill="#fca5a5" radius={[4,4,0,0]} />
-                  <Bar dataKey="Thực hiện" fill="#ef4444" radius={[4,4,0,0]} />
+                  <Bar dataKey="Kế hoạch" fill="#fca5a5" radius={[4,4,0,0]}>
+                    <LabelList dataKey="Kế hoạch" position="top" fontSize={10} fontWeight={700} fill="#1a1f36"
+                      formatter={(v) => v != null ? formatNum(v) : ''} />
+                  </Bar>
+                  <Bar dataKey="Thực hiện" fill="#ef4444" radius={[4,4,0,0]}>
+                    <LabelList dataKey="Thực hiện" position="top" fontSize={10} fontWeight={700} fill="#1a1f36"
+                      formatter={(v) => v != null ? formatNum(v) : ''} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -328,8 +334,14 @@ export default function GATab({ data }) {
                     <YAxis tick={{ fontSize:11 }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend iconSize={8} formatter={v => <span style={{ fontSize:11 }}>{v}</span>} />
-                    <Line type="monotone" dataKey="ACT" stroke="#f72585" strokeWidth={2} dot={{ r:3 }} />
-                    <Line type="monotone" dataKey="MP"  stroke="#06d6a0" strokeWidth={2} dot={{ r:3 }} />
+                    <Line type="monotone" dataKey="ACT" stroke="#f72585" strokeWidth={2} dot={{ r:3 }}>
+                      <LabelList dataKey="ACT" position="top" fontSize={10} fontWeight={700} fill="#1a1f36"
+                        formatter={(v) => v != null ? formatNum(v) : ''} />
+                    </Line>
+                    <Line type="monotone" dataKey="MP"  stroke="#06d6a0" strokeWidth={2} dot={{ r:3 }}>
+                      <LabelList dataKey="MP" position="bottom" fontSize={10} fontWeight={700} fill="#1a1f36"
+                        formatter={(v) => v != null ? formatNum(v) : ''} />
+                    </Line>
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -348,7 +360,10 @@ export default function GATab({ data }) {
                     <XAxis dataKey="month" tick={{ fontSize:11 }} />
                     <YAxis tick={{ fontSize:11 }} domain={[70,100]} tickFormatter={v => v+'%'} />
                     <Tooltip formatter={v => [v?.toFixed(1)+'%','TLDTPTT']} />
-                    <Line type="monotone" dataKey="value" name="TLDTPTT" stroke="#7209b7" strokeWidth={2.5} dot={{ r:4, fill:'#7209b7' }} />
+                    <Line type="monotone" dataKey="value" name="TLDTPTT" stroke="#7209b7" strokeWidth={2.5} dot={{ r:4, fill:'#7209b7' }}>
+                      <LabelList dataKey="value" position="top" fontSize={10} fontWeight={700} fill="#1a1f36"
+                        formatter={(v) => v != null ? v.toFixed(1) + '%' : ''} />
+                    </Line>
                   </LineChart>
                 </ResponsiveContainer>
               </div>
