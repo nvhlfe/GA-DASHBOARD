@@ -102,8 +102,8 @@ export default function UMTab({ data }) {
                  <th>PC Tạm đạt</th>
                  <th>Tổng TVV HĐ</th>
                  <th>Lượt ACT cần</th>
-                 <th>FYC Cần thêm</th>
-                <th>Tiền thưởng</th>
+                 <th>TVV CL cần thêm</th>
+                <th>Mức hỗ trợ</th>
                 <th>Duy trì (MOC)</th>
               </tr>
             </thead>
@@ -120,8 +120,8 @@ export default function UMTab({ data }) {
                   <td><PCBadge val={um.pcTamDat} /></td>
                   <td style={{ color:'#06d6a0', fontWeight:700 }}>{formatNum(um.tongTvvAct)}</td>
                   <td style={{ color:'#ef476f', fontWeight:700 }}>{formatNum(um.luotActCanThem)}</td>
-                  <td className="val-red">{formatNum(um.fycCanThem)}</td>
-                  <td className="val-green">{formatNum(um.tienThuong)}</td>
+                  <td style={{ color:'#7c3aed', fontWeight:700 }}>{formatNum(um.tvvMoiCl)}</td>
+                  <td style={{ color:'#fb8500', fontWeight:700 }}>{um.mucHoTro != null && !isNaN(Number(um.mucHoTro)) ? Number(um.mucHoTro).toFixed(1)+'%' : '—'}</td>
                   <td><MocBadge val={um.moc_tamDat} /></td>
                 </tr>
               ))}

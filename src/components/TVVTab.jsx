@@ -30,14 +30,18 @@ export default function TVVTab({ data }) {
   const [selected, setSelected] = useState(null)
   const [search, setSearch] = useState('')
   const [filterPE, setFilterPE] = useState('all')
+  const [filterUnit, setFilterUnit] = useState('all')
 
   const agList = data?.agList || []
   const peOptions = ['all', ...new Set(agList.map(a => a.peHienTai).filter(Boolean))]
+  const unitOptions = ['all', ...new Set(agList.map(a => a.unit).filter(Boolean))]
+    .sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b))
 
   const filtered = agList.filter(ag => {
     const matchSearch = !search || ag.agentName?.toLowerCase().includes(search.toLowerCase()) || String(ag.msddl).includes(search)
     const matchPE = filterPE === 'all' || ag.peHienTai === filterPE
-    return matchSearch && matchPE
+    const matchUnit = filterUnit === 'all' || ag.unit === filterUnit
+    return matchSearch && matchPE && matchUnit
   })
 
   const bachKim = agList.filter(a => String(a.peHienTai || '').includes('BẠCH KIM')).length
@@ -87,6 +91,11 @@ export default function TVVTab({ data }) {
             onFocus={e => e.target.style.borderColor = '#4361ee'}
             onBlur={e => e.target.style.borderColor = '#e8ecf4'}
           />
+          <select value={filterUnit} onChange={e => setFilterUnit(e.target.value)}
+            style={{ padding: '8px 12px', border: '1.5px solid #e8ecf4', borderRadius: 9, fontSize: 12, outline: 'none', fontFamily: 'Inter, sans-serif', background: 'white', cursor: 'pointer' }}>
+            <option value="all">Tất cả Unit</option>
+            {unitOptions.filter(u => u !== 'all').map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
           <select value={filterPE} onChange={e => setFilterPE(e.target.value)}
             style={{ padding: '8px 12px', border: '1.5px solid #e8ecf4', borderRadius: 9, fontSize: 12, outline: 'none', fontFamily: 'Inter, sans-serif', background: 'white', cursor: 'pointer' }}>
             <option value="all">Tất cả PE</option>
