@@ -146,8 +146,20 @@
   /* Case card */
   .case-card {
     border-radius: 5px; padding: 2px 3px; margin-bottom: 2px;
-    border: 1.5px solid transparent; overflow: hidden;
-    width: 100%; box-sizing: border-box;
+    border: 1.5px solid transparent; overflow: visible;
+    width: 100%; box-sizing: border-box; position: relative;
+  }
+  /* Note marker — giống góc tam giác comment trong Excel */
+  .case-note-mark {
+    position: absolute; top: -1px; right: -1px; width: 0; height: 0;
+    border-style: solid; border-width: 0 8px 8px 0;
+    border-color: transparent #cbd5e1 transparent transparent;
+    cursor: pointer; z-index: 4; opacity: .55;
+    transition: border-color .12s, opacity .12s;
+  }
+  .case-note-mark:hover { opacity: 1; }
+  .case-note-mark.has-note {
+    border-color: transparent #dc2626 transparent transparent; opacity: 1;
   }
   .case-card.none   { background: #fee2e2; border-color: #fca5a5; }
   .case-card.paid   { background: #fef9c3; border-color: #fde68a; }
@@ -417,11 +429,13 @@
       <button onclick="closeCaseModal()" style="width:28px;height:28px;border-radius:50%;border:none;background:#f0f4ff;cursor:pointer;font-size:14px">✕</button>
     </div>
     <input type="number" id="modalFee" placeholder="Phí đóng (VND)" class="form-input" />
-    <select id="modalStatus" class="form-input" style="margin-bottom:14px">
+    <select id="modalStatus" class="form-input" style="margin-bottom:10px">
       <option value="none">🔴 Chưa phí</option>
       <option value="paid">🟡 Có phí (chưa PH)</option>
       <option value="issued">🟢 Đã phát hành</option>
     </select>
+    <textarea id="modalNote" placeholder="Ghi chú (tuỳ chọn, giống comment trong Excel)" class="form-input"
+      style="margin-bottom:14px;min-height:56px;resize:vertical;font-family:inherit;"></textarea>
     <button onclick="saveModalCase()" class="modal-save-btn">Lưu hồ sơ</button>
   </div>
 </div>
@@ -620,6 +634,9 @@ function renderTable() {
 
       const pills = data.cases.map((item, ci) => `
         <div class="case-card ${statusBadge(item.status)}" onclick="event.stopPropagation()">
+          <div class="case-note-mark ${item.note?'has-note':''}"
+            title="${item.note ? esc(item.note) : 'Bấm để thêm ghi chú'}"
+            onclick="event.stopPropagation();editCaseNote(${pi},${d},${ci})"></div>
           <div class="case-card-top">
             <input
               type="number"
@@ -875,8 +892,7 @@ function validateFee(val) {
   const n = Number(val);
   if (val === '' || val === null) return { ok: true, value: '' };
   if (isNaN(n)) return { ok: false, msg: 'Phí phải là số' };
-  if (n < 0) return { ok: false, msg: 'Phí không thể âm' };
-  if (n > 500000000) return { ok: false, msg: 'Phí lớn bất thường (>500tr) — kiểm tra lại số 0' };
+  if (Math.abs(n) > 500000000) return { ok: false, msg: 'Phí lớn bất thường (>500tr) — kiểm tra lại số 0' };
   return { ok: true, value: n };
 }
 
@@ -937,23 +953,37 @@ function deleteCase(pi,d,ci) {
   logAudit('delete_case', `${reportData[pi].name} ngày ${d}: xóa hồ sơ ${fee.toLocaleString()} VND (${item.status})`);
 }
 
+// ── Ghi chú hồ sơ (giống comment Excel) ──
+function editCaseNote(pi,d,ci) {
+  if(userRole!=='admin'){openLoginModal();return;}
+  const item = reportData[pi].daily[d].cases[ci];
+  const cur = item.note || '';
+  const val = prompt('Ghi chú cho hồ sơ này (hiện khi rê chuột vào góc đỏ):', cur);
+  if (val === null) return; // người dùng bấm Hủy
+  item.note = val.trim();
+  saveCurrentMonth(); renderTable();
+  logAudit('update_note', `${reportData[pi].name} ngày ${d}: cập nhật ghi chú hồ sơ`);
+}
+
 // ── Modal ──
 function openCaseModal(pi,d) {
   if(userRole!=='admin'){openLoginModal();return;}
   currentModalPerson=pi; currentModalDay=d;
   document.getElementById('modalFee').value='';
   document.getElementById('modalStatus').value='none';
+  document.getElementById('modalNote').value='';
   document.getElementById('caseModal').style.display='flex';
 }
 function closeCaseModal() { document.getElementById('caseModal').style.display='none'; }
 function saveModalCase() {
   const fee=document.getElementById('modalFee').value;
   const status=document.getElementById('modalStatus').value;
+  const note=document.getElementById('modalNote').value.trim();
   const check = validateFee(fee);
   if (!check.ok) { alert('⚠️ ' + check.msg); return; }
   if(!reportData[currentModalPerson].daily[currentModalDay])
     reportData[currentModalPerson].daily[currentModalDay]={cases:[]};
-  reportData[currentModalPerson].daily[currentModalDay].cases.push({fee,status});
+  reportData[currentModalPerson].daily[currentModalDay].cases.push({fee,status,note});
   saveCurrentMonth(); renderHeader(); renderTable(); renderSummary(); renderOverview();
   logAudit('add_case', `${reportData[currentModalPerson].name} ngày ${currentModalDay}: thêm hồ sơ ${Number(fee||0).toLocaleString()} VND (${status})`);
   closeCaseModal();
@@ -980,7 +1010,7 @@ async function openAuditLog() {
     }
     const ACTION_ICON = {
       update_field:'✏️', add_person:'➕', delete_person:'🗑️',
-      update_fee:'💰', update_status:'🔄', delete_case:'❌', add_case:'📝',
+      update_fee:'💰', update_status:'🔄', delete_case:'❌', add_case:'📝', update_note:'🗒️',
     };
     listEl.innerHTML = snap.docs.map(d => {
       const v = d.data();
@@ -1110,7 +1140,7 @@ Object.assign(window, {
   showTab,exportExcel,exportOverviewExcel,addPerson,deletePerson,
   openCaseModal,closeCaseModal,saveModalCase,
   applySorting,applyDayFilter,
-  deleteCase,updateField,updateCaseFee,updateCaseStatus,
+  deleteCase,updateField,updateCaseFee,updateCaseStatus,editCaseNote,
   openLoginModal,closeLoginModal,loginDashboard,logoutDashboard,
   openAuditLog,closeAuditLog,
 });
