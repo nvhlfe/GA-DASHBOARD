@@ -27,7 +27,7 @@ export default function SalesReportTab() {
 
       <iframe
         ref={iframeRef}
-        src="https://d07-sales-report.vercel.app/"
+        src="./sales-report.html"
         style={{
           width: '100%',
           flex: 1,
